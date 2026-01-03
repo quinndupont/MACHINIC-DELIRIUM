@@ -99,6 +99,39 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
+        // Expand/collapse TOC chapters
+        const tocExpandButtons = tocSidebar.querySelectorAll('.toc-expand');
+        tocExpandButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const chapterItem = button.closest('.toc-chapter');
+                if (chapterItem) {
+                    chapterItem.classList.toggle('expanded');
+                }
+            });
+        });
+        
+        // Prevent chapter link clicks from toggling expand/collapse
+        const tocChapterLinks = tocSidebar.querySelectorAll('.toc-chapter-link');
+        tocChapterLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        });
+        
+        // Expand chapter if it contains the active link
+        const expandActiveChapter = () => {
+            const activeLink = tocSidebar.querySelector('.toc-list a.active');
+            if (activeLink) {
+                // Find the parent chapter (works for both chapter links and subsection links)
+                const chapterItem = activeLink.closest('.toc-chapter');
+                if (chapterItem && !chapterItem.classList.contains('expanded')) {
+                    chapterItem.classList.add('expanded');
+                }
+            }
+        };
+        
         // Highlight active TOC link
         const updateActiveTOCLink = () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -116,6 +149,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     link.classList.add('active');
                 }
             });
+            // Expand chapter containing active link
+            expandActiveChapter();
         };
         updateActiveTOCLink();
     }

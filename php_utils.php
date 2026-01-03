@@ -85,8 +85,56 @@ function parse_markdown_chapters() {
             $current_chapter = [
                 'title' => $chapter_title,
                 'slug' => slugify($chapter_title) ?: "chapter-{$chapter_num}",
-                'content' => []
+                'content' => [],
+                'subsections' => []
             ];
+            $i++;
+            continue;
+        }
+        
+        // Check for h1 headings (#) - these are subsections within chapters
+        // Format: "# 1 Desiring-Production" or "# 2 The Body without Organs"
+        // Match # followed by space and content (but not ##)
+        if (preg_match('/^# ([^#].+)$/', $line, $sub_matches)) {
+            $subsection_title = trim($sub_matches[1]);
+            // Add subsection to current chapter
+            if ($current_chapter !== null) {
+                $current_chapter['subsections'][] = [
+                    'title' => $subsection_title,
+                    'slug' => slugify($subsection_title)
+                ];
+                $current_chapter['content'][] = $line;
+            }
+            $i++;
+            continue;
+        }
+        
+        // Check for h3 headings (###) - subsections within chapters
+        if (preg_match('/^### (.+)$/', $line, $sub_matches)) {
+            $subsection_title = trim($sub_matches[1]);
+            // Add subsection to current chapter
+            if ($current_chapter !== null) {
+                $current_chapter['subsections'][] = [
+                    'title' => $subsection_title,
+                    'slug' => slugify($subsection_title)
+                ];
+                $current_chapter['content'][] = $line;
+            }
+            $i++;
+            continue;
+        }
+        
+        // Check for h4 headings (####) - subsections within chapters
+        if (preg_match('/^#### (.+)$/', $line, $sub_matches)) {
+            $subsection_title = trim($sub_matches[1]);
+            // Add subsection to current chapter
+            if ($current_chapter !== null) {
+                $current_chapter['subsections'][] = [
+                    'title' => $subsection_title,
+                    'slug' => slugify($subsection_title)
+                ];
+                $current_chapter['content'][] = $line;
+            }
             $i++;
             continue;
         }
@@ -118,7 +166,29 @@ function build_toc($chapters) {
     $html .= '<li><a href="?chapter=0">Title Page</a></li>';
     foreach ($chapters as $idx => $chapter) {
         $num = $idx + 1;
-        $html .= '<li><a href="?chapter=' . $num . '">' . htmlspecialchars($chapter['title']) . '</a></li>';
+        $has_subsections = !empty($chapter['subsections']) && count($chapter['subsections']) > 0;
+        
+        if ($has_subsections) {
+            $html .= '<li class="toc-chapter">';
+            $html .= '<div class="toc-chapter-header">';
+            $html .= '<button class="toc-expand" aria-label="Toggle subsections">';
+            $html .= '<svg class="toc-expand-icon" width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
+            $html .= '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>';
+            $html .= '</svg>';
+            $html .= '</button>';
+            $html .= '<a href="?chapter=' . $num . '" class="toc-chapter-link">' . htmlspecialchars($chapter['title']) . '</a>';
+            $html .= '</div>';
+            $html .= '<ul class="toc-subsections">';
+            foreach ($chapter['subsections'] as $subsection) {
+                $subsection_slug = htmlspecialchars($subsection['slug']);
+                $subsection_title = htmlspecialchars($subsection['title']);
+                $html .= '<li><a href="?chapter=' . $num . '#' . $subsection_slug . '">' . $subsection_title . '</a></li>';
+            }
+            $html .= '</ul>';
+            $html .= '</li>';
+        } else {
+            $html .= '<li><a href="?chapter=' . $num . '">' . htmlspecialchars($chapter['title']) . '</a></li>';
+        }
     }
     $html .= '</ul>';
     return $html;

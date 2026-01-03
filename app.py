@@ -168,16 +168,35 @@ def parse_markdown_chapters():
             current_chapter = {
                 'title': chapter_title,
                 'slug': slugify(chapter_title) or f"chapter-{chapter_num}",
-                'content': []
+                'content': [],
+                'subsections': []
             }
+            i += 1
+            continue
+        
+        # Check for h1 headings (#) - these are subsections within chapters
+        # Format: "# 1 Desiring-Production" or "# 2 The Body without Organs"
+        if line.startswith('# ') and not line.startswith('## '):
+            subsection_title = line[2:].strip()  # Remove '# ' prefix
+            # Add subsection to current chapter
+            if current_chapter:
+                current_chapter['subsections'].append({
+                    'title': subsection_title,
+                    'slug': slugify(subsection_title)
+                })
+                current_chapter['content'].append(line)
             i += 1
             continue
         
         # Check for h3 headings (###) - subsections within chapters
         if line.startswith('### '):
             subsection_title = line[4:].strip()
-            # Add as part of chapter content
+            # Add subsection to current chapter
             if current_chapter:
+                current_chapter['subsections'].append({
+                    'title': subsection_title,
+                    'slug': slugify(subsection_title)
+                })
                 current_chapter['content'].append(line)
             i += 1
             continue
@@ -185,8 +204,12 @@ def parse_markdown_chapters():
         # Check for h4 headings (####) - subsections within chapters
         if line.startswith('#### '):
             subsection_title = line[5:].strip()
-            # Add as part of chapter content
+            # Add subsection to current chapter
             if current_chapter:
+                current_chapter['subsections'].append({
+                    'title': subsection_title,
+                    'slug': slugify(subsection_title)
+                })
                 current_chapter['content'].append(line)
             i += 1
             continue
@@ -201,9 +224,16 @@ def parse_markdown_chapters():
         current_chapter['content'] = '\n'.join(current_chapter['content'])
         CHAPTERS.append(current_chapter)
     
-    # Build TOC
-    TOC = [{'title': ch['title'], 'slug': ch['slug'], 'num': i+1} 
-           for i, ch in enumerate(CHAPTERS)]
+    # Build TOC with subsections
+    TOC = []
+    for i, ch in enumerate(CHAPTERS):
+        toc_item = {
+            'title': ch['title'],
+            'slug': ch['slug'],
+            'num': i+1,
+            'subsections': ch.get('subsections', [])
+        }
+        TOC.append(toc_item)
 
 def get_title_page():
     """Extract and return the title page content (first 15 lines)."""
@@ -218,14 +248,31 @@ def get_title_page():
     return '\n'.join(line.rstrip() for line in title_lines)
 
 def get_toc_html():
-    """Generate HTML for table of contents."""
+    """Generate HTML for table of contents with expandable chapters."""
     html = '<ul class="toc-list">'
     # Add title page link
     html += '<li><a href="?chapter=0">Title Page</a></li>'
-    # Add chapter links
+    # Add chapter links with expandable subsections
     if TOC:
         for item in TOC:
-            html += f'<li><a href="?chapter={item["num"]}">{item["title"]}</a></li>'
+            has_subsections = item.get('subsections') and len(item['subsections']) > 0
+            if has_subsections:
+                html += f'<li class="toc-chapter">'
+                html += f'<div class="toc-chapter-header">'
+                html += f'<button class="toc-expand" aria-label="Toggle subsections">'
+                html += f'<svg class="toc-expand-icon" width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+                html += f'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>'
+                html += f'</svg>'
+                html += f'</button>'
+                html += f'<a href="?chapter={item["num"]}" class="toc-chapter-link">{item["title"]}</a>'
+                html += f'</div>'
+                html += f'<ul class="toc-subsections">'
+                for subsection in item['subsections']:
+                    html += f'<li><a href="?chapter={item["num"]}#{subsection["slug"]}">{subsection["title"]}</a></li>'
+                html += f'</ul>'
+                html += f'</li>'
+            else:
+                html += f'<li><a href="?chapter={item["num"]}">{item["title"]}</a></li>'
     html += '</ul>'
     return html
 
