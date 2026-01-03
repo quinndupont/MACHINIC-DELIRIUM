@@ -20,7 +20,21 @@ if (!in_array($current_page, $allowed_pages) && !isset($_SESSION['logged_in'])) 
     exit;
 }
 
-// Check if this is an API request
+// Check if this is an API request (fallback if .htaccess rewrite doesn't work)
+$request_uri = $_SERVER['REQUEST_URI'];
+$path_info = parse_url($request_uri, PHP_URL_PATH);
+
+// Handle API routes directly
+if (preg_match('#^/api/(chat|define|search)$#', $path_info, $matches)) {
+    $endpoint = $matches[1];
+    $api_file = __DIR__ . '/api/' . $endpoint . '.php';
+    if (file_exists($api_file)) {
+        require $api_file;
+        exit;
+    }
+}
+
+// Check if this is an API request via query parameter
 if (isset($_GET['action']) && $_GET['action'] === 'api') {
     handle_api();
     exit;

@@ -6,11 +6,16 @@
 
 // Load .env file if it exists
 function load_dotenv($filepath) {
-    if (!file_exists($filepath)) {
+    if (!file_exists($filepath) || !is_readable($filepath)) {
         return;
     }
     
-    $lines = file($filepath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $lines = @file($filepath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($lines === false) {
+        // File couldn't be read (permission denied, etc.)
+        return;
+    }
+    
     foreach ($lines as $line) {
         // Skip comments
         if (strpos(trim($line), '#') === 0) {

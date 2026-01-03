@@ -15,14 +15,17 @@ DirectoryIndex index.php index.html
 RewriteEngine On
 RewriteBase /
 
-# Rewrite /api/define to /api/define.php
-RewriteRule ^api/define$ api/define.php [L]
+# Rewrite /api/define to /api/define.php (with or without trailing slash)
+RewriteRule ^api/define/?$ api/define.php [L]
 
-# Rewrite /api/chat to /api/chat.php
-RewriteRule ^api/chat$ api/chat.php [L]
+# Rewrite /api/chat to /api/chat.php (with or without trailing slash)
+RewriteRule ^api/chat/?$ api/chat.php [L]
 
-# Rewrite /api/search to /api/search.php
-RewriteRule ^api/search$ api/search.php [L]
+# Rewrite /api/search to /api/search.php (with or without trailing slash)
+RewriteRule ^api/search/?$ api/search.php [L]
+
+# Alternative: If mod_rewrite doesn't work, try using Alias directives
+# But first, test if the files are accessible directly at /api/chat.php
 
 # Optional: Set environment variables (if supported by NearlyFreeSpeech)
 # SetEnv OPENAI_API_KEY "your-key-here"

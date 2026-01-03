@@ -316,6 +316,16 @@ function call_openai_chat_stream($api_key, $messages, $max_tokens = 2000, $tempe
         'stream' => true
     ];
     
+    // Disable output buffering for streaming
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    // Set headers for streaming
+    header('Content-Type: text/plain');
+    header('Cache-Control: no-cache');
+    header('Connection: keep-alive');
+    
     $ch = curl_init('https://api.openai.com/v1/chat/completions');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
     curl_setopt($ch, CURLOPT_POST, true);
@@ -324,13 +334,34 @@ function call_openai_chat_stream($api_key, $messages, $max_tokens = 2000, $tempe
         'Content-Type: application/json',
         'Authorization: Bearer ' . $api_key
     ]);
+    
+    // Handle streaming response
     curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($ch, $data) {
-        echo $data;
-        flush();
+        // Parse Server-Sent Events format
+        $lines = explode("\n", $data);
+        foreach ($lines as $line) {
+            if (strpos($line, 'data: ') === 0) {
+                $json_str = substr($line, 6);
+                if ($json_str === '[DONE]') {
+                    return strlen($data);
+                }
+                $json = json_decode($json_str, true);
+                if ($json && isset($json['choices'][0]['delta']['content'])) {
+                    $content = $json['choices'][0]['delta']['content'];
+                    echo $content;
+                    flush();
+                }
+            }
+        }
         return strlen($data);
     });
     
-    curl_exec($ch);
+    $result = curl_exec($ch);
+    $error = curl_error($ch);
     curl_close($ch);
+    
+    if ($result === false && $error) {
+        echo "Error: " . $error;
+    }
 }
 
