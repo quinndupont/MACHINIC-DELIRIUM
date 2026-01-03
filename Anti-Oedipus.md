@@ -527,18 +527,6 @@ Is it possible that, by taking the path that it has, psychoanalysis is reviving 
 
 Translated by Robert Hurley and Mark Seem
 
-The text currently has many line breaks but lacks proper paragraph division. Your task is to:
-
-1. Group related sentences into proper paragraphs
-2. Create paragraph breaks (double line breaks) where there are semantic breaks in thought
-3. Keep single line breaks within paragraphs only where they are necessary (e.g., for readability of long paragraphs)
-4. Preserve ALL original text - do not add, remove, or change any words
-5. Preserve all punctuation, capitalization, and formatting exactly as written
-6. Only fix paragraph breaks - do not fix other formatting issues unless they affect paragraph structure
-7. Do not wrap the response in code blocks or markdown formatting
-
-Text to fix:
-
 
 # 1 The Imperialism of Oedipus
 
