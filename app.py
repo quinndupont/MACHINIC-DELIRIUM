@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response
 from dotenv import load_dotenv
 import os
 from rag import RAGSystem
@@ -11,15 +11,24 @@ load_dotenv()
 
 app = Flask(__name__)
 # Use a strong secret key for production - should be set in environment
-app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(32).hex())
+# For development, use a fixed key so sessions persist across restarts
+dev_secret_key = "dev-secret-key-change-in-production"
+app.secret_key = os.getenv("FLASK_SECRET_KEY", dev_secret_key)
 
 # Configure session cookies for security
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV') == 'production'  # HTTPS only in production
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to False for localhost development
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours in seconds
 
 SERVER_API_KEY = os.getenv("OPENAI_API_KEY")
 APP_PASSWORD = os.getenv("APP_PASSWORD")
+
+# Debug: Log password status (don't log actual password)
+if APP_PASSWORD:
+    print(f"APP_PASSWORD loaded: {'*' * min(len(APP_PASSWORD), 10)} (length: {len(APP_PASSWORD)})")
+else:
+    print("WARNING: APP_PASSWORD not set in .env file")
 
 # Initialize RAG System - use markdown file only
 markdown_file = "Anti-Oedipus.md"
@@ -226,8 +235,16 @@ get_full_text()
 @app.before_request
 def require_login():
     allowed_routes = ['login', 'static', 'test', 'ui_test']
-    if request.endpoint not in allowed_routes and 'logged_in' not in session:
+    # Skip login check for allowed routes
+    if request.endpoint in allowed_routes:
+        return None
+    
+    # Check if user is logged in
+    if 'logged_in' not in session:
+        print(f"Access denied - no session. Endpoint: {request.endpoint}, Session keys: {list(session.keys())}")
         return redirect(url_for('login'))
+    else:
+        print(f"Access granted - logged in. Endpoint: {request.endpoint}, Session: {dict(session)}")
 
 def validate_openai_key(api_key):
     """Validate an OpenAI API key format and basic validity."""
@@ -258,25 +275,53 @@ def login():
     if request.method == 'POST':
         input_value = request.form.get('password', '').strip()
         
-        # Check if it's the server password
-        if APP_PASSWORD and input_value == APP_PASSWORD:
-            session['logged_in'] = True
-            # Clear any user API key if using server password
-            session.pop('user_api_key', None)
-            return redirect(url_for('index'))
+        # Debug logging
+        print(f"Login attempt - Input length: {len(input_value)}, APP_PASSWORD set: {bool(APP_PASSWORD)}")
         
-        # Check if it's a valid OpenAI API key
-        # OpenAI API keys typically start with 'sk-' and are 51 characters long
+        if not input_value:
+            return render_template('login.html', error="Please enter a password or API key")
+        
+        # First, check if it's the server password from .env
+        # Only check password if APP_PASSWORD is set and not empty
+        if APP_PASSWORD:
+            app_password_stripped = APP_PASSWORD.strip()
+            if app_password_stripped:
+                if input_value == app_password_stripped:
+                    print("Password match! Logging in...")
+                    # Set permanent BEFORE setting values - this is important!
+                    session.permanent = True
+                    session['logged_in'] = True
+                    # Clear any user API key if using server password
+                    if 'user_api_key' in session:
+                        session.pop('user_api_key', None)
+                    # Force session to be saved
+                    session.modified = True
+                    print(f"Session after login: {dict(session)}")
+                    # Use redirect - Flask will automatically save session cookie
+                    # The session cookie is set by Flask's session middleware after route handler returns
+                    return redirect(url_for('index'))
+                else:
+                    print(f"Password mismatch - Input length: {len(input_value)}, Expected length: {len(app_password_stripped)}")
+                    # Continue to check if it's an API key instead
+        
+        # If not the password, check if it's a valid OpenAI API key
+        # OpenAI API keys start with 'sk-' and are typically 20+ characters
         if input_value.startswith('sk-') and len(input_value) >= 20:
             if validate_openai_key(input_value):
+                session.permanent = True
                 session['logged_in'] = True
                 session['user_api_key'] = input_value
-                return redirect(url_for('index'))
+                session.modified = True
+                response = make_response(redirect(url_for('index')))
+                return response
             else:
                 return render_template('login.html', error="Invalid OpenAI API Key")
         
-        # Neither password nor valid API key
-        return render_template('login.html', error="Invalid Password or API Key")
+        # Neither password nor valid API key format
+        if APP_PASSWORD:
+            return render_template('login.html', error="Invalid Password or API Key")
+        else:
+            return render_template('login.html', error="Invalid API Key. Please provide a valid OpenAI API key.")
     
     return render_template('login.html')
 

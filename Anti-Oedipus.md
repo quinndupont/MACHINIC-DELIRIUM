@@ -1,5 +1,5 @@
-Machinic Delirium: Accelerated Anti-Oedipus  
-Anti-Oedipus by Gilles Deleuze and Felix Guattari  
+Anti-Oedipus: CAPITALISM AND SCHIZOPHRENIA  
+by Gilles Deleuze and Felix Guattari  
 Translated from the French by Robert Hurley, Mark Seem, and Helen R. Lane  
 Preface by Michel Foucault  
 University of Minnesota Press  
