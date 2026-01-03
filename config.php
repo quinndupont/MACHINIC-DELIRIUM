@@ -10,7 +10,7 @@ $config = [
     'APP_PASSWORD' => getenv('APP_PASSWORD') ?: '',
     'FLASK_SECRET_KEY' => getenv('FLASK_SECRET_KEY') ?: 'dev-secret-key-change-in-production',
     'MARKDOWN_FILE' => __DIR__ . '/Anti-Oedipus.md',
-    'PYTHON_PATH' => '/usr/bin/python3', // Try: which python3 on server
+    'PYTHON_PATH' => '/home/public/venv/bin/python3', // Try: which python3 on server
     'RAG_SCRIPT' => __DIR__ . '/rag_api.py'
 ];
 
