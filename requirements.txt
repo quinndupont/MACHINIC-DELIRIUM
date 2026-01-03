@@ -1,7 +1,7 @@
 flask
 python-dotenv
 openai
-numpy
+numpy<2.0.0
 tiktoken
 markdown
 
