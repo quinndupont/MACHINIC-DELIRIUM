@@ -47,9 +47,18 @@ function api_chat($data) {
         $rag_results = simple_text_search($message, 8);
     }
     
+    // Log if no results found
+    if (empty($rag_results)) {
+        error_log("No RAG results found for query: " . $message);
+    }
+    
     // Build context
     $context_parts = [];
     foreach ($rag_results as $result) {
+        if (empty($result['text'])) {
+            continue; // Skip empty results
+        }
+        
         $chapter_info = "Chapter {$result['chapter_num']}: {$result['chapter_title']}";
         if (!empty($result['subsection'])) {
             $chapter_info .= " - {$result['subsection']}";
@@ -58,6 +67,12 @@ function api_chat($data) {
     }
     
     $context_text = implode("\n---\n\n", $context_parts);
+    
+    // If no context found, add a note
+    if (empty($context_text)) {
+        $context_text = "[Note: No relevant passages found in the text for this query.]";
+        error_log("Warning: Empty context text for query: " . $message);
+    }
     
     $api_key = get_api_key();
     $system_prompt = get_system_prompt_base() . "\n\nYou have access to relevant passages from Anti-Oedipus. When citing the text, always include the chapter number and title. Here are the relevant passages:\n\n{$context_text}\n\nWhen answering questions, cite specific chapters and passages. If the user asks about something not covered in the provided passages, acknowledge this and provide your best answer based on your understanding of the work you wrote with Guattari.";

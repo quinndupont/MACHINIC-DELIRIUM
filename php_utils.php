@@ -211,13 +211,34 @@ function call_python_rag($query, $k = 5) {
     $command = "{$python_path} {$script} query {$query_escaped} {$k_escaped} {$api_key_escaped} 2>&1";
     $output = shell_exec($command);
     
-    if ($output === null) {
+    if ($output === null || empty(trim($output))) {
+        error_log("Python RAG returned null/empty output. Command: " . $command);
         // Fallback to simple search
         return simple_text_search($query, $k);
     }
     
     $result = json_decode($output, true);
     if (json_last_error() !== JSON_ERROR_NONE) {
+        error_log("Python RAG JSON decode error: " . json_last_error_msg() . ". Output: " . substr($output, 0, 200));
+        // Fallback to simple search
+        return simple_text_search($query, $k);
+    }
+    
+    // Check if result has error
+    if (isset($result['error'])) {
+        error_log("Python RAG error: " . $result['error']);
+        return simple_text_search($query, $k);
+    }
+    
+    // Ensure result is an array
+    if (!is_array($result)) {
+        error_log("Python RAG returned non-array result");
+        return simple_text_search($query, $k);
+    }
+    
+    // Validate result structure
+    if (empty($result)) {
+        error_log("Python RAG returned empty results for query: " . $query);
         return simple_text_search($query, $k);
     }
     
@@ -225,52 +246,118 @@ function call_python_rag($query, $k = 5) {
 }
 
 function simple_text_search($query, $k = 5) {
-    // Fallback: simple keyword-based search
+    // Improved keyword-based search with better matching
     $chapters = parse_markdown_chapters();
     $results = [];
-    $query_terms = explode(' ', strtolower($query));
     
+    if (empty($chapters)) {
+        error_log("No chapters found in simple_text_search");
+        return [];
+    }
+    
+    // Clean and split query into meaningful terms (remove common words)
+    $query_lower = strtolower(trim($query));
+    $stop_words = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'what', 'which', 'who', 'when', 'where', 'why', 'how'];
+    $query_terms = array_filter(explode(' ', $query_lower), function($term) use ($stop_words) {
+        $term = trim($term);
+        return strlen($term) > 2 && !in_array($term, $stop_words);
+    });
+    
+    // If no meaningful terms after filtering, use original query
+    if (empty($query_terms)) {
+        $query_terms = [strtolower($query)];
+    }
+    
+    // Search through all chapters
     foreach ($chapters as $idx => $chapter) {
         $chapter_num = $idx + 1;
-        $content_lower = strtolower($chapter['content']);
+        $content = $chapter['content'] ?? '';
         
-        $score = 0;
-        foreach ($query_terms as $term) {
-            $score += substr_count($content_lower, $term);
+        if (empty($content)) {
+            continue;
         }
         
-        if ($score > 0) {
-            // Extract a chunk around matches
-            $pos = stripos($content_lower, $query_terms[0]);
-            if ($pos !== false) {
-                $start = max(0, $pos - 200);
-                $end = min(strlen($chapter['content']), $pos + strlen($query) + 200);
-                $chunk = substr($chapter['content'], $start, $end - $start);
+        $content_lower = strtolower($content);
+        
+        // Calculate score based on term frequency and position
+        $score = 0;
+        $match_positions = [];
+        
+        foreach ($query_terms as $term) {
+            $term = trim($term);
+            if (empty($term)) continue;
+            
+            $count = substr_count($content_lower, $term);
+            $score += $count;
+            
+            // Find all positions of this term
+            $pos = 0;
+            while (($pos = stripos($content_lower, $term, $pos)) !== false) {
+                $match_positions[] = $pos;
+                $pos += strlen($term);
+            }
+        }
+        
+        if ($score > 0 && !empty($match_positions)) {
+            // Sort match positions
+            sort($match_positions);
+            
+            // Extract chunks around each match (up to k chunks per chapter)
+            $chunks_per_chapter = min(2, $k); // Max 2 chunks per chapter
+            $chunks_added = 0;
+            
+            foreach ($match_positions as $pos) {
+                if ($chunks_added >= $chunks_per_chapter) break;
                 
-                $results[] = [
-                    'text' => $chunk,
-                    'chapter_num' => $chapter_num,
-                    'chapter_title' => $chapter['title'],
-                    'subsection' => ''
-                ];
+                // Get context around match (300 chars before and after)
+                $start = max(0, $pos - 300);
+                $end = min(strlen($content), $pos + strlen($query) + 300);
+                $chunk = substr($content, $start, $end - $start);
+                
+                // Calculate chunk score
+                $chunk_score = 0;
+                $chunk_lower = strtolower($chunk);
+                foreach ($query_terms as $term) {
+                    $chunk_score += substr_count($chunk_lower, $term);
+                }
+                
+                // Only add if chunk has meaningful content
+                if (strlen(trim($chunk)) > 50) {
+                    $results[] = [
+                        'text' => trim($chunk),
+                        'chapter_num' => $chapter_num,
+                        'chapter_title' => $chapter['title'] ?? "Chapter $chapter_num",
+                        'subsection' => '',
+                        'score' => $chunk_score
+                    ];
+                    $chunks_added++;
+                }
             }
         }
     }
     
-    // Sort by score and limit
-    usort($results, function($a, $b) use ($query_terms) {
-        $a_score = 0;
-        $b_score = 0;
-        $a_text = strtolower($a['text']);
-        $b_text = strtolower($b['text']);
-        foreach ($query_terms as $term) {
-            $a_score += substr_count($a_text, $term);
-            $b_score += substr_count($b_text, $term);
-        }
-        return $b_score <=> $a_score;
+    // Sort by score (highest first) and limit
+    usort($results, function($a, $b) {
+        return ($b['score'] ?? 0) <=> ($a['score'] ?? 0);
     });
     
-    return array_slice($results, 0, $k);
+    // Remove duplicates (same chapter and similar text)
+    $unique_results = [];
+    foreach ($results as $result) {
+        $key = $result['chapter_num'] . '|' . substr($result['text'], 0, 100);
+        if (!isset($unique_results[$key])) {
+            $unique_results[$key] = $result;
+        }
+    }
+    
+    $final_results = array_values($unique_results);
+    
+    // Log if no results found
+    if (empty($final_results)) {
+        error_log("Simple text search found no results for query: " . $query);
+    }
+    
+    return array_slice($final_results, 0, $k);
 }
 
 function call_openai_chat($api_key, $system_prompt, $user_prompt, $max_tokens = 500, $temperature = 0.7) {

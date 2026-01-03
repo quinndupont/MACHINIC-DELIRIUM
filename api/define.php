@@ -46,9 +46,18 @@ function api_define($data) {
         $rag_results = simple_text_search($term . ' ' . $context, 6);
     }
     
+    // Log if no results found
+    if (empty($rag_results)) {
+        error_log("No RAG results found for define query: " . $term);
+    }
+    
     // Build context from results
     $context_parts = [];
     foreach ($rag_results as $result) {
+        if (empty($result['text'])) {
+            continue; // Skip empty results
+        }
+        
         $chapter_info = "Chapter {$result['chapter_num']}: {$result['chapter_title']}";
         if (!empty($result['subsection'])) {
             $chapter_info .= " - {$result['subsection']}";
@@ -57,6 +66,12 @@ function api_define($data) {
     }
     
     $context_text = implode("\n---\n\n", $context_parts);
+    
+    // If no context found, add a note
+    if (empty($context_text)) {
+        $context_text = "[Note: No relevant passages found in the text for this term.]";
+        error_log("Warning: Empty context text for define query: " . $term);
+    }
     
     // Call OpenAI
     try {
