@@ -2,7 +2,6 @@ flask
 python-dotenv
 openai
 numpy
-scikit-learn
 tiktoken
 markdown
 

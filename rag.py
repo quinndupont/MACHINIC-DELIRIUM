@@ -3,9 +3,16 @@ import json
 import numpy as np
 import tiktoken
 from openai import OpenAI
-from sklearn.metrics.pairwise import cosine_similarity
 import pickle
 import re
+
+def cosine_similarity(query_embeddings, doc_embeddings):
+    """Compute cosine similarity between query and document embeddings using numpy."""
+    # Normalize embeddings
+    query_norm = query_embeddings / (np.linalg.norm(query_embeddings, axis=1, keepdims=True) + 1e-8)
+    doc_norm = doc_embeddings / (np.linalg.norm(doc_embeddings, axis=1, keepdims=True) + 1e-8)
+    # Compute cosine similarity
+    return np.dot(query_norm, doc_norm.T)
 
 class RAGSystem:
     def __init__(self, text_path, api_key, model="text-embedding-3-small"):
@@ -285,7 +292,7 @@ class RAGSystem:
             input=[query_text], model=self.model
         ).data[0].embedding
         
-        similarities = cosine_similarity([query_embedding], self.embeddings)[0]
+        similarities = cosine_similarity(np.array([query_embedding]), self.embeddings)[0]
         top_k_indices = similarities.argsort()[-k:][::-1]
         
         results = []
