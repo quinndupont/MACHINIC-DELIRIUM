@@ -53,10 +53,20 @@
         {% if error %}
             <div class="error">{{ error }}</div>
         {% endif %}
-        <form method="POST">
-            <input type="password" name="password" placeholder="Enter Password" required autofocus>
+        <form method="POST" id="loginForm">
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.875rem; color: #666;">Enter Password or OpenAI API Key</label>
+                <input type="password" name="password" id="password" placeholder="Password or API Key" required autofocus>
+            </div>
             <button type="submit">Enter</button>
         </form>
+        <div style="margin-top: 1rem; font-size: 0.75rem; color: #666; text-align: center;">
+            <p>You can use either:</p>
+            <ul style="list-style: none; padding: 0; margin: 0.5rem 0;">
+                <li>• Server password (if provided)</li>
+                <li>• Your own OpenAI API key</li>
+            </ul>
+        </div>
     </div>
 </body>
 </html>

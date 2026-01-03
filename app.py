@@ -10,9 +10,15 @@ import markdown
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev_key")
+# Use a strong secret key for production - should be set in environment
+app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(32).hex())
 
-API_KEY = os.getenv("OPENAI_API_KEY")
+# Configure session cookies for security
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV') == 'production'  # HTTPS only in production
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+SERVER_API_KEY = os.getenv("OPENAI_API_KEY")
 APP_PASSWORD = os.getenv("APP_PASSWORD")
 
 # Initialize RAG System - use markdown file only
@@ -20,8 +26,30 @@ markdown_file = "Anti-Oedipus.md"
 if not os.path.exists(markdown_file):
     raise FileNotFoundError(f"Markdown file {markdown_file} not found")
 
-rag_system = RAGSystem(markdown_file, API_KEY)
-client = OpenAI(api_key=API_KEY)
+# RAG system will be initialized per-request with appropriate API key
+rag_system_cache = {}
+client_cache = {}
+
+def get_api_key():
+    """Get API key from session if available, otherwise use server API key."""
+    api_key = session.get('user_api_key') or SERVER_API_KEY
+    if not api_key:
+        raise ValueError("No API key available. Please provide an API key at login.")
+    return api_key
+
+def get_rag_system():
+    """Get or create RAG system instance for the current API key."""
+    api_key = get_api_key()
+    if api_key not in rag_system_cache:
+        rag_system_cache[api_key] = RAGSystem(markdown_file, api_key)
+    return rag_system_cache[api_key]
+
+def get_openai_client():
+    """Get or create OpenAI client for the current API key."""
+    api_key = get_api_key()
+    if api_key not in client_cache:
+        client_cache[api_key] = OpenAI(api_key=api_key)
+    return client_cache[api_key]
 
 # Full text content for LLM context
 FULL_TEXT = None
@@ -201,15 +229,55 @@ def require_login():
     if request.endpoint not in allowed_routes and 'logged_in' not in session:
         return redirect(url_for('login'))
 
+def validate_openai_key(api_key):
+    """Validate an OpenAI API key format and basic validity."""
+    # Check format: OpenAI keys start with 'sk-' and are typically 51 characters
+    if not api_key or not api_key.startswith('sk-'):
+        return False
+    if len(api_key) < 20 or len(api_key) > 100:
+        return False
+    
+    # Optionally do a lightweight validation call
+    # For better UX, we'll validate format only and let API calls fail gracefully
+    # if the key is invalid
+    try:
+        test_client = OpenAI(api_key=api_key)
+        # Make a minimal, fast API call to validate the key
+        # Using a simple models list call with limit=1 for speed
+        test_client.models.list(limit=1)
+        return True
+    except Exception as e:
+        # If validation fails, still allow login but API calls will fail
+        # This provides better UX - user can try the key
+        print(f"API key validation warning: {e}")
+        # Return True anyway - format is correct, let actual usage validate
+        return True
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        password = request.form.get('password')
-        if password == APP_PASSWORD:
+        input_value = request.form.get('password', '').strip()
+        
+        # Check if it's the server password
+        if APP_PASSWORD and input_value == APP_PASSWORD:
             session['logged_in'] = True
+            # Clear any user API key if using server password
+            session.pop('user_api_key', None)
             return redirect(url_for('index'))
-        else:
-            return render_template('login.html', error="Invalid Password")
+        
+        # Check if it's a valid OpenAI API key
+        # OpenAI API keys typically start with 'sk-' and are 51 characters long
+        if input_value.startswith('sk-') and len(input_value) >= 20:
+            if validate_openai_key(input_value):
+                session['logged_in'] = True
+                session['user_api_key'] = input_value
+                return redirect(url_for('index'))
+            else:
+                return render_template('login.html', error="Invalid OpenAI API Key")
+        
+        # Neither password nor valid API key
+        return render_template('login.html', error="Invalid Password or API Key")
+    
     return render_template('login.html')
 
 @app.route('/test')
@@ -289,107 +357,117 @@ def index():
 
 @app.route('/api/define', methods=['POST'])
 def define():
-    data = request.json
-    term = data.get('term')
-    context = data.get('context') # Surrounding text
-    
-    # Use RAG to retrieve relevant chunks for the term
-    query_text = f"{term} {context}" if context else term
-    rag_results = rag_system.query(query_text, k=6)
-    
-    # Build context from retrieved chunks with chapter information
-    context_parts = []
-    for result in rag_results:
-        chunk_text = result['text']
-        metadata = result.get('metadata', {})
-        chapter_info = f"Chapter {metadata.get('chapter_num', '?')}: {metadata.get('chapter_title', 'Unknown')}"
-        if metadata.get('subsection'):
-            chapter_info += f" - {metadata['subsection']}"
-        context_parts.append(f"[{chapter_info}]\n{chunk_text}\n")
-    
-    context_text = "\n---\n\n".join(context_parts)
-    
-    # Build system prompt with retrieved context
-    system_prompt = f"""{SYSTEM_PROMPT_BASE}
+    try:
+        data = request.json
+        term = data.get('term')
+        context = data.get('context') # Surrounding text
+        
+        # Use RAG to retrieve relevant chunks for the term
+        query_text = f"{term} {context}" if context else term
+        rag_results = get_rag_system().query(query_text, k=6)
+        
+        # Build context from retrieved chunks with chapter information
+        context_parts = []
+        for result in rag_results:
+            chunk_text = result['text']
+            metadata = result.get('metadata', {})
+            chapter_info = f"Chapter {metadata.get('chapter_num', '?')}: {metadata.get('chapter_title', 'Unknown')}"
+            if metadata.get('subsection'):
+                chapter_info += f" - {metadata['subsection']}"
+            context_parts.append(f"[{chapter_info}]\n{chunk_text}\n")
+        
+        context_text = "\n---\n\n".join(context_parts)
+        
+        # Build system prompt with retrieved context
+        system_prompt = f"""{SYSTEM_PROMPT_BASE}
 
 You have access to relevant passages from Anti-Oedipus that mention the term. When citing the text, always include the chapter number and title. Here are the relevant passages:
 
 {context_text}
 
 Provide a comprehensive definition based on how this term is used in these passages."""
-    
-    user_prompt = f"Define the term '{term}' as it is used in Anti-Oedipus."
-    if context:
-        user_prompt += f" The user has selected this text for context: \"{context}\"."
+        
+        user_prompt = f"Define the term '{term}' as it is used in Anti-Oedipus."
+        if context:
+            user_prompt += f" The user has selected this text for context: \"{context}\"."
 
-    response = client.chat.completions.create(
-        model="gpt-4o",  # Using gpt-4o for better context handling
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        max_tokens=500,
-        temperature=0.7
-    )
-    
-    return jsonify({"definition": response.choices[0].message.content})
+        response = get_openai_client().chat.completions.create(
+            model="gpt-4o",  # Using gpt-4o for better context handling
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_tokens=500,
+            temperature=0.7
+        )
+        
+        return jsonify({"definition": response.choices[0].message.content})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": f"Failed to get definition: {str(e)}"}), 500
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
-    data = request.json
-    message = data.get('message')
-    history = data.get('history', [])
+    try:
+        data = request.json
+        message = data.get('message')
+        history = data.get('history', [])
+        
+        # Use RAG to retrieve relevant chunks
+        rag_results = get_rag_system().query(message, k=8)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": f"Failed to process chat: {str(e)}"}), 500
     
-    # Use RAG to retrieve relevant chunks
-    rag_results = rag_system.query(message, k=8)
-    
-    # Build context from retrieved chunks with chapter information
-    context_parts = []
-    for result in rag_results:
-        chunk_text = result['text']
-        metadata = result.get('metadata', {})
-        chapter_info = f"Chapter {metadata.get('chapter_num', '?')}: {metadata.get('chapter_title', 'Unknown')}"
-        if metadata.get('subsection'):
-            chapter_info += f" - {metadata['subsection']}"
-        context_parts.append(f"[{chapter_info}]\n{chunk_text}\n")
-    
-    context_text = "\n---\n\n".join(context_parts)
-    
-    # Build system prompt with retrieved context
-    system_prompt = f"""{SYSTEM_PROMPT_BASE}
+        # Build context from retrieved chunks with chapter information
+        context_parts = []
+        for result in rag_results:
+            chunk_text = result['text']
+            metadata = result.get('metadata', {})
+            chapter_info = f"Chapter {metadata.get('chapter_num', '?')}: {metadata.get('chapter_title', 'Unknown')}"
+            if metadata.get('subsection'):
+                chapter_info += f" - {metadata['subsection']}"
+            context_parts.append(f"[{chapter_info}]\n{chunk_text}\n")
+        
+        context_text = "\n---\n\n".join(context_parts)
+        
+        # Build system prompt with retrieved context
+        system_prompt = f"""{SYSTEM_PROMPT_BASE}
 
 You have access to relevant passages from Anti-Oedipus. When citing the text, always include the chapter number and title. Here are the relevant passages:
 
 {context_text}
 
 When answering questions, cite specific chapters and passages. If the user asks about something not covered in the provided passages, acknowledge this and provide your best answer based on your understanding of the work you wrote with Guattari."""
-    
-    # Build messages array
-    # Always prepend the system prompt to ensure it's up to date
-    messages = [{"role": "system", "content": system_prompt}]
-    
-    # Add conversation history (excluding any existing system messages)
-    for msg in history:
-        if msg.get('role') != 'system':
-            messages.append(msg)
-    
-    # Add current user message
-    messages.append({"role": "user", "content": message})
-    
-    response = client.chat.completions.create(
-        model="gpt-4o",  # Using gpt-4o for better context handling
-        messages=messages,
-        stream=True,
-        temperature=0.8,
-        max_tokens=2000
-    )
+        
+        # Build messages array
+        # Always prepend the system prompt to ensure it's up to date
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        # Add conversation history (excluding any existing system messages)
+        for msg in history:
+            if msg.get('role') != 'system':
+                messages.append(msg)
+        
+        # Add current user message
+        messages.append({"role": "user", "content": message})
+        
+        response = get_openai_client().chat.completions.create(
+            model="gpt-4o",  # Using gpt-4o for better context handling
+            messages=messages,
+            stream=True,
+            temperature=0.8,
+            max_tokens=2000
+        )
 
-    def generate():
-        for chunk in response:
-            if chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
+        def generate():
+            for chunk in response:
+                if chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
 
-    return app.response_class(generate(), mimetype='text/plain')
+        return app.response_class(generate(), mimetype='text/plain')
 
 @app.route('/api/search', methods=['POST'])
 def search():

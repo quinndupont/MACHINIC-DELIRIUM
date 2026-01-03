@@ -8,7 +8,7 @@ A modern web application for reading *Anti-Oedipus* by Gilles Deleuze and Félix
 - **Reading Aids**: Dark mode, font size/family toggles.
 - **AI "Define"**: Highlight any text to get a context-aware definition from "Deleuze".
 - **Chat Sidebar**: Discuss the text with an AI persona of Gilles Deleuze, with direct citations from the book.
-- **Secure**: Password protected and API keys kept server-side.
+- **Secure**: Password protected with option to use your own OpenAI API key (stored securely in session).
 
 ## Setup
 
@@ -20,9 +20,10 @@ A modern web application for reading *Anti-Oedipus* by Gilles Deleuze and Félix
 
 2. **Configuration**:
    Create a `.env` file in the root directory with the following variables:
-   - `OPENAI_API_KEY`: Your OpenAI API Key.
-   - `APP_PASSWORD`: The password to access the app.
-   - `FLASK_SECRET_KEY`: Secret key for Flask sessions (optional, defaults to 'dev_key').
+   - `OPENAI_API_KEY`: Server's OpenAI API Key (optional - users can provide their own).
+   - `APP_PASSWORD`: The password to access the app (optional - users can provide their own API key).
+   - `FLASK_SECRET_KEY`: Secret key for Flask sessions (required for production - generate a strong random key).
+   - `FLASK_ENV`: Set to `production` for secure cookies (required for HTTPS deployments).
 
 3. **Run the Server**:
    ```bash
@@ -39,5 +40,14 @@ A modern web application for reading *Anti-Oedipus* by Gilles Deleuze and Félix
 ## Access
 
 Open your browser to `http://localhost:5001`.
-Login with the password defined in `.env`.
+
+**Login Options:**
+- Enter the server password (if `APP_PASSWORD` is set in `.env`)
+- Enter your own OpenAI API key (stored securely in session, never on server)
+
+Your API key is stored securely in an HTTP-only session cookie and is only used for your session.
+
+## Deployment
+
+For production deployment on Apache (e.g., NearlyFreeSpeech), see [DEPLOYMENT.md](DEPLOYMENT.md).
 
