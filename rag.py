@@ -1,18 +1,76 @@
 import os
 import json
-import numpy as np
+import math
 import tiktoken
 from openai import OpenAI
 import pickle
 import re
 
+def dot_product(a, b):
+    """Compute dot product of two vectors."""
+    return sum(x * y for x, y in zip(a, b))
+
+def vector_norm(v):
+    """Compute L2 norm of a vector."""
+    return math.sqrt(sum(x * x for x in v))
+
+def convert_to_list(embeddings):
+    """Convert embeddings to list format, handling numpy arrays from old cache files."""
+    if not embeddings:
+        return embeddings
+    
+    # Check if it's a numpy array (has tolist method) or already a list
+    try:
+        # Try to convert numpy array to list
+        if hasattr(embeddings, 'tolist'):
+            return embeddings.tolist()
+    except:
+        pass
+    
+    # If it's already a list, check if elements are numpy arrays
+    if isinstance(embeddings, list):
+        result = []
+        for emb in embeddings:
+            if hasattr(emb, 'tolist'):
+                result.append(emb.tolist())
+            else:
+                result.append(list(emb) if not isinstance(emb, list) else emb)
+        return result
+    
+    # Fallback: try to convert to list
+    return list(embeddings) if not isinstance(embeddings, list) else embeddings
+
 def cosine_similarity(query_embeddings, doc_embeddings):
-    """Compute cosine similarity between query and document embeddings using numpy."""
-    # Normalize embeddings
-    query_norm = query_embeddings / (np.linalg.norm(query_embeddings, axis=1, keepdims=True) + 1e-8)
-    doc_norm = doc_embeddings / (np.linalg.norm(doc_embeddings, axis=1, keepdims=True) + 1e-8)
-    # Compute cosine similarity
-    return np.dot(query_norm, doc_norm.T)
+    """Compute cosine similarity between query and document embeddings using pure Python."""
+    # Handle single query embedding (if passed as flat list, wrap it)
+    if query_embeddings and not isinstance(query_embeddings[0], list):
+        query_embeddings = [query_embeddings]
+    
+    results = []
+    for query_emb in query_embeddings:
+        # Normalize query embedding
+        query_norm_val = vector_norm(query_emb)
+        if query_norm_val == 0:
+            query_norm_val = 1e-8
+        query_norm = [x / query_norm_val for x in query_emb]
+        
+        # Compute similarities with all document embeddings
+        similarities = []
+        for doc_emb in doc_embeddings:
+            # Normalize document embedding
+            doc_norm_val = vector_norm(doc_emb)
+            if doc_norm_val == 0:
+                doc_norm_val = 1e-8
+            doc_norm = [x / doc_norm_val for x in doc_emb]
+            
+            # Compute cosine similarity (dot product of normalized vectors)
+            similarity = dot_product(query_norm, doc_norm)
+            similarities.append(similarity)
+        
+        results.append(similarities)
+    
+    # Return single list if single query, otherwise return list of lists
+    return results[0] if len(results) == 1 else results
 
 class RAGSystem:
     def __init__(self, text_path, api_key, model="text-embedding-3-small"):
@@ -226,7 +284,7 @@ class RAGSystem:
             batch = texts[i : i + batch_size]
             response = self.client.embeddings.create(input=batch, model=self.model)
             embeddings.extend([data.embedding for data in response.data])
-        return np.array(embeddings)
+        return embeddings  # Return as list of lists instead of numpy array
 
     def load_or_create_embeddings(self):
         if os.path.exists(self.cache_file):
@@ -235,7 +293,8 @@ class RAGSystem:
                 data = pickle.load(f)
                 self.chunks = data['chunks']
                 self.chunk_metadata = data.get('chunk_metadata', [])
-                self.embeddings = data['embeddings']
+                # Convert embeddings to list format (handles old numpy arrays)
+                self.embeddings = convert_to_list(data['embeddings'])
         else:
             print("Generating embeddings (this may take a minute)...")
             text = self.load_text()
@@ -292,8 +351,12 @@ class RAGSystem:
             input=[query_text], model=self.model
         ).data[0].embedding
         
-        similarities = cosine_similarity(np.array([query_embedding]), self.embeddings)[0]
-        top_k_indices = similarities.argsort()[-k:][::-1]
+        similarities = cosine_similarity([query_embedding], self.embeddings)
+        
+        # Create list of (index, similarity) tuples and sort by similarity
+        indexed_similarities = [(idx, sim) for idx, sim in enumerate(similarities)]
+        indexed_similarities.sort(key=lambda x: x[1], reverse=True)
+        top_k_indices = [idx for idx, _ in indexed_similarities[:k]]
         
         results = []
         for idx in top_k_indices:
