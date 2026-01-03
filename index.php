@@ -4,11 +4,12 @@
  * Main entry point - handles routing and sessions
  */
 
-session_start();
-
-// Load configuration
+// Load configuration FIRST (before session_start) so session ini settings can be set
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/php_utils.php';
+
+// Now start session (after config has set ini settings)
+session_start();
 
 // Check if user is logged in (except for login page)
 $current_page = basename($_SERVER['PHP_SELF']);

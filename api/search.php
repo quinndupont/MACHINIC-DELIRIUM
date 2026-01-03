@@ -3,9 +3,12 @@
  * Search API endpoint
  */
 
-session_start();
+// Load configuration FIRST (before session_start) so session ini settings can be set
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../php_utils.php';
+
+// Now start session (after config has set ini settings)
+session_start();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
