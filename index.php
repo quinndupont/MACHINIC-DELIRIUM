@@ -4,9 +4,20 @@
  * Main entry point - handles routing and sessions
  */
 
+// Enable error reporting for debugging (remove in production)
+error_reporting(E_ALL);
+ini_set('display_errors', 0); // Don't display errors, but log them
+ini_set('log_errors', 1);
+
 // Load configuration FIRST (before session_start) so session ini settings can be set
-require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/php_utils.php';
+try {
+    require_once __DIR__ . '/config.php';
+    require_once __DIR__ . '/php_utils.php';
+} catch (Exception $e) {
+    error_log("Error loading config: " . $e->getMessage());
+    http_response_code(500);
+    die("Configuration error. Please check server logs.");
+}
 
 // Now start session (after config has set ini settings)
 session_start();
