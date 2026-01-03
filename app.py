@@ -462,13 +462,12 @@ def chat():
         message = data.get('message')
         history = data.get('history', [])
         
+        if not message:
+            return jsonify({"error": "Message is required"}), 400
+        
         # Use RAG to retrieve relevant chunks
         rag_results = get_rag_system().query(message, k=8)
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"error": f"Failed to process chat: {str(e)}"}), 500
-    
+        
         # Build context from retrieved chunks with chapter information
         context_parts = []
         for result in rag_results:
@@ -516,6 +515,10 @@ When answering questions, cite specific chapters and passages. If the user asks 
                     yield chunk.choices[0].delta.content
 
         return app.response_class(generate(), mimetype='text/plain')
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": f"Failed to process chat: {str(e)}"}), 500
 
 @app.route('/api/search', methods=['POST'])
 def search():
