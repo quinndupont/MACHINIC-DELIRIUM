@@ -575,6 +575,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
+    // Handle hash navigation (scroll to anchor on page load)
+    const handleHashNavigation = () => {
+        if (window.location.hash) {
+            const hash = window.location.hash.substring(1); // Remove the #
+            const targetElement = document.getElementById(hash);
+            if (targetElement) {
+                // Wait for content to render, then scroll
+                setTimeout(() => {
+                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    // Add a small offset for fixed toolbar
+                    window.scrollBy(0, -80);
+                }, 100);
+            }
+        }
+    };
+    
+    // Run on page load
+    handleHashNavigation();
+    
+    // Also handle hash changes (e.g., when clicking TOC links)
+    window.addEventListener('hashchange', handleHashNavigation);
+    
     // Check for search query in URL on page load
     const urlParams = new URLSearchParams(window.location.search);
     const urlSearchQuery = urlParams.get('search');

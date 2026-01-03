@@ -211,10 +211,34 @@ function markdown_to_html($markdown) {
     // For now, basic conversion
     $html = $markdown;
     
-    // Headers (h2, h3, h4)
-    $html = preg_replace('/^## (.+)$/m', '<h2 id="' . slugify('$1') . '">$1</h2>', $html);
-    $html = preg_replace('/^### (.+)$/m', '<h3 id="' . slugify('$1') . '">$1</h3>', $html);
-    $html = preg_replace('/^#### (.+)$/m', '<h4 id="' . slugify('$1') . '">$1</h4>', $html);
+    // Headers (h1, h2, h3, h4) - add anchor IDs for navigation
+    // Process h1 first (subsections like "# 1 Desiring-Production")
+    $html = preg_replace_callback('/^# ([^#].+)$/m', function($matches) {
+        $text = trim($matches[1]);
+        $slug = slugify($text);
+        return '<h1 id="' . htmlspecialchars($slug) . '">' . htmlspecialchars($text) . '</h1>';
+    }, $html);
+    
+    // Process h2 headers
+    $html = preg_replace_callback('/^## (.+)$/m', function($matches) {
+        $text = trim($matches[1]);
+        $slug = slugify($text);
+        return '<h2 id="' . htmlspecialchars($slug) . '">' . htmlspecialchars($text) . '</h2>';
+    }, $html);
+    
+    // Process h3 headers
+    $html = preg_replace_callback('/^### (.+)$/m', function($matches) {
+        $text = trim($matches[1]);
+        $slug = slugify($text);
+        return '<h3 id="' . htmlspecialchars($slug) . '">' . htmlspecialchars($text) . '</h3>';
+    }, $html);
+    
+    // Process h4 headers
+    $html = preg_replace_callback('/^#### (.+)$/m', function($matches) {
+        $text = trim($matches[1]);
+        $slug = slugify($text);
+        return '<h4 id="' . htmlspecialchars($slug) . '">' . htmlspecialchars($text) . '</h4>';
+    }, $html);
     
     // Bold
     $html = preg_replace('/\*\*(.+?)\*\*/', '<strong>$1</strong>', $html);
