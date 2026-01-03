@@ -4,6 +4,45 @@
  * Copy this to config.php and set your values
  */
 
+// Load .env file if it exists
+function load_dotenv($filepath) {
+    if (!file_exists($filepath)) {
+        return;
+    }
+    
+    $lines = file($filepath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        // Skip comments
+        if (strpos(trim($line), '#') === 0) {
+            continue;
+        }
+        
+        // Parse KEY=VALUE format
+        if (strpos($line, '=') !== false) {
+            list($key, $value) = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
+            
+            // Remove quotes if present
+            if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') ||
+                (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
+                $value = substr($value, 1, -1);
+            }
+            
+            // Only set if not already in environment
+            if (!getenv($key)) {
+                putenv("$key=$value");
+            }
+        }
+    }
+}
+
+// Load .env file
+$env_file = __DIR__ . '/.env';
+if (file_exists($env_file)) {
+    load_dotenv($env_file);
+}
+
 // Load from environment or set defaults
 $config = [
     'OPENAI_API_KEY' => getenv('OPENAI_API_KEY') ?: '',
