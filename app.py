@@ -1,13 +1,16 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response
-from dotenv import load_dotenv
 import os
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    print("ERROR: python-dotenv is not installed. Please run: pip install -r requirements.txt")
+    raise
 from rag import RAGSystem
 from openai import OpenAI
 import math
 from markupsafe import Markup
 import markdown
-
-load_dotenv()
 
 app = Flask(__name__)
 # Use a strong secret key for production - should be set in environment
