@@ -1,0 +1,30 @@
+# Apache configuration for NearlyFreeSpeech PHP deployment
+
+# Enable PHP
+AddHandler application/x-httpd-php .php
+
+# Set default file
+DirectoryIndex index.php index.html
+
+# Security: Protect config.php
+<Files "config.php">
+    Require all denied
+</Files>
+
+# Rewrite API routes to PHP files
+RewriteEngine On
+RewriteBase /
+
+# Rewrite /api/define to /api/define.php
+RewriteRule ^api/define$ api/define.php [L]
+
+# Rewrite /api/chat to /api/chat.php
+RewriteRule ^api/chat$ api/chat.php [L]
+
+# Rewrite /api/search to /api/search.php
+RewriteRule ^api/search$ api/search.php [L]
+
+# Optional: Set environment variables (if supported by NearlyFreeSpeech)
+# SetEnv OPENAI_API_KEY "your-key-here"
+# SetEnv APP_PASSWORD "your-password-here"
+

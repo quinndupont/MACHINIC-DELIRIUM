@@ -1,0 +1,75 @@
+<?php
+/**
+ * Login page for PHP version
+ */
+
+session_start();
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/php_utils.php';
+
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $input = trim($_POST['password'] ?? '');
+    
+    if (empty($input)) {
+        $error = "Please enter a password or API key";
+    } else {
+        global $config;
+        
+        // Check if it's the server password
+        if (!empty($config['APP_PASSWORD']) && $input === $config['APP_PASSWORD']) {
+            $_SESSION['logged_in'] = true;
+            unset($_SESSION['user_api_key']); // Use server key
+            header('Location: index.php');
+            exit;
+        }
+        
+        // Check if it's an OpenAI API key
+        if (strpos($input, 'sk-') === 0 && strlen($input) >= 20) {
+            // Validate format (basic check)
+            $_SESSION['logged_in'] = true;
+            $_SESSION['user_api_key'] = $input;
+            header('Location: index.php');
+            exit;
+        }
+        
+        // Invalid
+        if (!empty($config['APP_PASSWORD'])) {
+            $error = "Invalid Password or API Key";
+        } else {
+            $error = "Invalid API Key. Please provide a valid OpenAI API key.";
+        }
+    }
+}
+
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Anti-Oedipus Reader</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <div class="login-container">
+        <h1>Anti-Oedipus Reader</h1>
+        <form method="POST" action="login.php">
+            <?php if ($error): ?>
+                <div class="error"><?php echo htmlspecialchars($error); ?></div>
+            <?php endif; ?>
+            <div class="form-group">
+                <label for="password">Password or OpenAI API Key:</label>
+                <input type="password" id="password" name="password" required autofocus>
+            </div>
+            <button type="submit">Login</button>
+        </form>
+        <p class="help-text">
+            Enter the server password (if configured) or your own OpenAI API key.
+            Your API key is stored securely in your session and never saved on the server.
+        </p>
+    </div>
+</body>
+</html>
+
