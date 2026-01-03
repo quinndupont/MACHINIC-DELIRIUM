@@ -36,6 +36,11 @@ Thumbs.db
 instance/
 .webassets-cache
 
+# Production
+logs/
+*.pid
+gunicorn.pid
+
 # Distribution / packaging
 dist/
 build/
