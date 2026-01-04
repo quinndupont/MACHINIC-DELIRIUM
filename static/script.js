@@ -344,6 +344,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchNextBtn = document.getElementById('search-next');
     const searchPrevBtn = document.getElementById('search-prev');
     const searchStats = document.getElementById('search-stats');
+    const searchCloseBtn = document.getElementById('search-close');
+    
+    // Check if search elements exist
+    if (!searchInput || !searchBar || !searchToggle) {
+        console.warn('Search elements not found - search functionality disabled');
+    }
+    
     let searchResults = [];
     let currentSearchIndex = -1;
     let currentSearchQuery = '';
@@ -466,13 +473,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!query.trim()) {
             searchResults = [];
             currentSearchIndex = -1;
-            searchStats.textContent = '';
+            if (searchStats) {
+                searchStats.textContent = '';
+            }
             clearHighlights();
             return;
         }
         
         try {
-            const response = await fetch('/api/search', {
+            // Use relative path for PHP version compatibility
+            const apiPath = window.location.pathname.includes('index.php') 
+                ? 'api/search.php' 
+                : '/api/search';
+            const response = await fetch(apiPath, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ query })
@@ -493,18 +506,24 @@ document.addEventListener('DOMContentLoaded', () => {
             currentSearchQuery = query;
             
             if (searchResults.length > 0) {
-                searchStats.textContent = `${searchResults.length} result${searchResults.length > 1 ? 's' : ''}`;
+                if (searchStats) {
+                    searchStats.textContent = `${searchResults.length} result${searchResults.length > 1 ? 's' : ''}`;
+                }
                 if (autoNavigate) {
                     currentSearchIndex = -1;
                     navigateToSearchResult(0);
                 }
             } else {
-                searchStats.textContent = 'No results';
+                if (searchStats) {
+                    searchStats.textContent = 'No results';
+                }
                 clearHighlights();
             }
         } catch (error) {
             console.error('Search error:', error);
-            searchStats.textContent = `Error: ${error.message}`;
+            if (searchStats) {
+                searchStats.textContent = `Error: ${error.message}`;
+            }
         }
     };
     
@@ -516,7 +535,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const result = searchResults[index];
         currentSearchIndex = index;
-        searchStats.textContent = `${index + 1} / ${searchResults.length}`;
+        if (searchStats) {
+            searchStats.textContent = `${index + 1} / ${searchResults.length}`;
+        }
         
         // Navigate to chapter if not already there
         const urlParams = new URLSearchParams(window.location.search);
@@ -540,40 +561,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // Search input handler
-    let searchTimeout;
-    searchInput.addEventListener('input', (e) => {
-        clearTimeout(searchTimeout);
-        const query = e.target.value.trim();
-        
-        searchTimeout = setTimeout(() => {
-            performSearch(query);
-        }, 300); // Debounce search
-    });
-    
-    // Enter key to search immediately
-    searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
+    // Search input handler (only if elements exist)
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
-            performSearch(e.target.value.trim());
-        }
-    });
+            const query = e.target.value.trim();
+            
+            searchTimeout = setTimeout(() => {
+                performSearch(query);
+            }, 300); // Debounce search
+        });
+        
+        // Enter key to search immediately
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(searchTimeout);
+                performSearch(e.target.value.trim());
+            }
+        });
+    }
     
     // Next/Prev buttons
-    searchNextBtn.addEventListener('click', () => {
-        if (searchResults.length > 0) {
-            const nextIndex = (currentSearchIndex + 1) % searchResults.length;
-            navigateToSearchResult(nextIndex);
-        }
-    });
+    if (searchNextBtn) {
+        searchNextBtn.addEventListener('click', () => {
+            if (searchResults.length > 0) {
+                const nextIndex = (currentSearchIndex + 1) % searchResults.length;
+                navigateToSearchResult(nextIndex);
+            }
+        });
+    }
     
-    searchPrevBtn.addEventListener('click', () => {
-        if (searchResults.length > 0) {
-            const prevIndex = currentSearchIndex <= 0 ? searchResults.length - 1 : currentSearchIndex - 1;
-            navigateToSearchResult(prevIndex);
-        }
-    });
+    if (searchPrevBtn) {
+        searchPrevBtn.addEventListener('click', () => {
+            if (searchResults.length > 0) {
+                const prevIndex = currentSearchIndex <= 0 ? searchResults.length - 1 : currentSearchIndex - 1;
+                navigateToSearchResult(prevIndex);
+            }
+        });
+    }
     
     // Handle hash navigation (scroll to anchor on page load)
     const handleHashNavigation = () => {
@@ -602,7 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlSearchQuery = urlParams.get('search');
     const urlSearchIndex = parseInt(urlParams.get('index') || '0');
     
-    if (urlSearchQuery) {
+    if (urlSearchQuery && searchInput && searchBar) {
         // Set search input value and show search bar
         searchInput.value = urlSearchQuery;
         searchBar.classList.remove('hidden');
@@ -612,7 +639,9 @@ document.addEventListener('DOMContentLoaded', () => {
             await performSearch(urlSearchQuery, false);
             if (searchResults.length > 0 && urlSearchIndex >= 0 && urlSearchIndex < searchResults.length) {
                 currentSearchIndex = urlSearchIndex;
-                searchStats.textContent = `${urlSearchIndex + 1} / ${searchResults.length}`;
+                if (searchStats) {
+                    searchStats.textContent = `${urlSearchIndex + 1} / ${searchResults.length}`;
+                }
                 // Wait a bit for content to render, then highlight
                 setTimeout(() => {
                     highlightSearchTerm(urlSearchQuery);
@@ -630,28 +659,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 500);
     }
     
-    // Search toggle
-    searchToggle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        searchBar.classList.toggle('hidden');
-        if (!searchBar.classList.contains('hidden')) {
-            searchInput.focus();
-        }
-    });
+    // Search toggle (only if elements exist)
+    if (searchToggle && searchBar) {
+        searchToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            searchBar.classList.toggle('hidden');
+            if (!searchBar.classList.contains('hidden') && searchInput) {
+                searchInput.focus();
+            }
+        });
+    }
     
-    document.getElementById('search-close').addEventListener('click', (e) => {
-        e.stopPropagation();
-        searchBar.classList.add('hidden');
-        clearHighlights();
-        searchResults = [];
-        currentSearchIndex = -1;
-        searchStats.textContent = '';
-        // Remove search params from URL
-        const url = new URL(window.location);
-        url.searchParams.delete('search');
-        url.searchParams.delete('index');
-        window.history.replaceState({}, '', url);
-    });
+    if (searchCloseBtn && searchBar) {
+        searchCloseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            searchBar.classList.add('hidden');
+            clearHighlights();
+            searchResults = [];
+            currentSearchIndex = -1;
+            if (searchStats) {
+                searchStats.textContent = '';
+            }
+            // Remove search params from URL
+            const url = new URL(window.location);
+            url.searchParams.delete('search');
+            url.searchParams.delete('index');
+            window.history.replaceState({}, '', url);
+        });
+    }
     
     // Close search bar when clicking outside
     document.addEventListener('click', (e) => {
@@ -720,7 +755,11 @@ document.addEventListener('DOMContentLoaded', () => {
         chatMessages.appendChild(systemDiv);
         
         try {
-            const response = await fetch('/api/chat', {
+            // Use relative path for PHP version compatibility
+            const chatPath = window.location.pathname.includes('index.php') 
+                ? 'api/chat.php' 
+                : '/api/chat';
+            const response = await fetch(chatPath, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -788,7 +827,11 @@ document.addEventListener('DOMContentLoaded', () => {
         chatMessages.scrollTop = chatMessages.scrollHeight;
         
         try {
-            const res = await fetch('/api/define', {
+            // Use relative path for PHP version compatibility
+            const definePath = window.location.pathname.includes('index.php') 
+                ? 'api/define.php' 
+                : '/api/define';
+            const res = await fetch(definePath, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ term, context })
