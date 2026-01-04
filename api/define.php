@@ -40,10 +40,10 @@ function api_define($data) {
     
     // Check if Python RAG is available
     if (is_python_available()) {
-        $rag_results = call_python_rag($term . ' ' . $context, 15); // Increased from 6 to 15 for better coverage
+        $rag_results = call_python_rag($term . ' ' . $context, 30); // Increased to 30 chunks for comprehensive context
     } else {
         // Fallback to simple text search
-        $rag_results = simple_text_search($term . ' ' . $context, 6);
+        $rag_results = simple_text_search($term . ' ' . $context, 30);
     }
     
     // Log if no results found
@@ -82,7 +82,8 @@ function api_define($data) {
             $user_prompt .= " The user has selected this text for context: \"{$context}\".";
         }
         
-        $response = call_openai_chat($api_key, $system_prompt, $user_prompt, 500, 0.7);
+        // Increased max_tokens to allow more comprehensive definitions with context
+        $response = call_openai_chat($api_key, $system_prompt, $user_prompt, 1000, 0.7);
         
         header('Content-Type: application/json');
         echo json_encode(['definition' => $response]);

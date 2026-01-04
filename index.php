@@ -160,10 +160,10 @@ function api_define($data) {
     
     // Check if Python RAG is available
     if (is_python_available()) {
-        $rag_results = call_python_rag($term . ' ' . $context, 6);
+        $rag_results = call_python_rag($term . ' ' . $context, 30); // Increased for better context
     } else {
         // Fallback to simple text search
-        $rag_results = simple_text_search($term . ' ' . $context, 6);
+        $rag_results = simple_text_search($term . ' ' . $context, 30);
     }
     
     // Build context from results
@@ -186,7 +186,7 @@ function api_define($data) {
         $user_prompt .= " The user has selected this text for context: \"{$context}\".";
     }
     
-    $response = call_openai_chat($api_key, $system_prompt, $user_prompt, 500, 0.7);
+    $response = call_openai_chat($api_key, $system_prompt, $user_prompt, 1000, 0.7); // Increased max_tokens
     
     echo json_encode(['definition' => $response]);
 }
@@ -203,9 +203,9 @@ function api_chat($data) {
     
     // Check if Python RAG is available
     if (is_python_available()) {
-        $rag_results = call_python_rag($message, 8);
+        $rag_results = call_python_rag($message, 40); // Increased for better context
     } else {
-        $rag_results = simple_text_search($message, 8);
+        $rag_results = simple_text_search($message, 40);
     }
     
     // Build context
@@ -234,7 +234,7 @@ function api_chat($data) {
     
     // Stream response
     header('Content-Type: text/plain');
-    call_openai_chat_stream($api_key, $messages, 2000, 0.8);
+    call_openai_chat_stream($api_key, $messages, 4000, 0.8); // Increased max_tokens
 }
 
 function api_search($data) {

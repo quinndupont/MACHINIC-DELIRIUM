@@ -42,9 +42,9 @@ function api_chat($data) {
     
     // Check if Python RAG is available
     if (is_python_available()) {
-        $rag_results = call_python_rag($message, 20); // Increased from 8 to 20 for better coverage
+        $rag_results = call_python_rag($message, 40); // Increased to 40 chunks for comprehensive context
     } else {
-        $rag_results = simple_text_search($message, 20);
+        $rag_results = simple_text_search($message, 40);
     }
     
     // Log if no results found
@@ -88,7 +88,8 @@ function api_chat($data) {
     
     // Stream response
     header('Content-Type: text/plain');
-    call_openai_chat_stream($api_key, $messages, 2000, 0.8);
+    // Increased max_tokens to allow longer responses with more context
+    call_openai_chat_stream($api_key, $messages, 4000, 0.8);
 }
 
 api_chat($input);
