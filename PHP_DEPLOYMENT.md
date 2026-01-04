@@ -56,9 +56,10 @@ $config = [
     'APP_PASSWORD' => 'your-secure-password-here',
     'FLASK_SECRET_KEY' => 'generate-a-random-secret-key-here',
     'MARKDOWN_FILE' => __DIR__ . '/Anti-Oedipus.md',
-    'PYTHON_PATH' => '/usr/bin/python3', // Update after checking with 'which python3'
+    'PYTHON_PATH' => '/usr/local/bin/python', // Update after checking with 'which python' or 'which python3'
     'EMBED_SCRIPT' => __DIR__ . '/embed_query.py', // Convert query to vector
     'SEARCH_SCRIPT' => __DIR__ . '/search_faiss.py', // Search FAISS index
+    'HYBRID_SCRIPT' => __DIR__ . '/search_hybrid.py', // Hybrid semantic + keyword search
     'FAISS_INDEX' => __DIR__ . '/faiss_index.bin',
     'CHUNKS_JSON' => __DIR__ . '/chunks.json' // Text chunks and metadata
 ];
