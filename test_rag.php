@@ -40,7 +40,13 @@ if (!is_python_available()) {
         $output = [];
         $return_var = 0;
         // Test if Python can actually run and has required modules
-        @exec("$candidate -c 'import faiss, sentence_transformers; print(\"OK\")' 2>&1", $output, $return_var);
+        // Check for pure Python solution (only needs openai)
+        @exec("$candidate -c 'import openai; print(\"OK\")' 2>&1", $output, $return_var);
+        if ($return_var === 0) {
+            echo "    ✅ OpenAI library available\n";
+        }
+        // Also check for FAISS if available
+        @exec("$candidate -c 'import faiss; print(\"FAISS OK\")' 2>&1", $output, $return_var);
         if ($return_var === 0 && implode('', $output) === 'OK') {
             $found_python = $candidate;
             echo "  - Found working Python with required modules at: $candidate\n";
@@ -57,8 +63,9 @@ if (!is_python_available()) {
             if ($return_var === 0 && implode('', $output) === 'OK') {
                 $found_python = $candidate;
                 echo "  - Found Python (but missing modules) at: $candidate\n";
-                echo "    Missing modules: faiss, sentence_transformers\n";
-                echo "    Install with: $candidate -m pip install faiss-cpu sentence-transformers torch\n";
+                echo "    Missing module: openai\n";
+                echo "    Install with: $candidate -m pip install openai\n";
+                echo "    (Optional: If FAISS available, install faiss-cpu for faster search)\n";
                 break;
             }
         }
