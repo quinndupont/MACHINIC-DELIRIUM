@@ -75,12 +75,37 @@ else
 fi
 
 echo ""
-echo "Installing torch..."
-pip install torch --index-url https://download.pytorch.org/whl/cpu
+echo "Installing torch (trying regular PyPI first)..."
+# Try regular PyPI - may have FreeBSD wheels or will attempt to build
+if pip install torch; then
+    echo "✅ Installed torch from PyPI"
+elif pip install --no-cache-dir torch; then
+    echo "✅ Installed torch (built from source)"
+else
+    echo ""
+    echo "⚠️  Warning: Could not install torch"
+    echo "PyTorch doesn't have FreeBSD wheels. Trying to install sentence-transformers anyway..."
+    echo "sentence-transformers may pull torch as a dependency or fail."
+fi
 
 echo ""
 echo "Installing sentence-transformers..."
-pip install sentence-transformers
+# sentence-transformers will try to install torch as a dependency if not present
+if pip install sentence-transformers; then
+    echo "✅ Installed sentence-transformers"
+else
+    echo ""
+    echo "❌ Cannot install sentence-transformers!"
+    echo ""
+    echo "sentence-transformers requires PyTorch, which doesn't have FreeBSD wheels."
+    echo ""
+    echo "Options:"
+    echo "1. Ask your hosting provider to install PyTorch via pkg:"
+    echo "   pkg install py311-pytorch"
+    echo ""
+    echo "2. Use an alternative embedding approach (requires code changes)"
+    exit 1
+fi
 
 echo ""
 echo "Installing FAISS..."
