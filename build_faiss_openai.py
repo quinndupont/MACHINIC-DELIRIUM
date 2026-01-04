@@ -57,16 +57,35 @@ class OpenAIFAISSIndexBuilder:
         current_chapter = None
         
         for i, line in enumerate(lines):
-            # Check for chapter headers (# Chapter X: Title)
-            if line.startswith('# Chapter ') or line.startswith('## Chapter '):
-                if current_chapter:
-                    chapters.append(current_chapter)
+            # Check for chapter headers in various formats:
+            # - ## 1 TITLE
+            # - ## Chapter 1: Title
+            # - # Chapter 1: Title
+            is_chapter = False
+            chapter_num = 0
+            chapter_title = ''
+            
+            # Format: ## 1 TITLE or ## NUMBER TITLE
+            import re
+            match = re.match(r'^##\s+(\d+)\s+(.+)$', line.strip())
+            if match:
+                is_chapter = True
+                chapter_num = int(match.group(1))
+                chapter_title = match.group(2).strip()
+            # Format: ## Chapter X: Title or # Chapter X: Title
+            elif line.startswith('# Chapter ') or line.startswith('## Chapter '):
+                is_chapter = True
                 chapter_match = line.replace('#', '').strip()
                 parts = chapter_match.split(':', 1)
-                chapter_num = parts[0].replace('Chapter', '').strip()
+                chapter_num_str = parts[0].replace('Chapter', '').strip()
+                chapter_num = int(chapter_num_str) if chapter_num_str.isdigit() else 0
                 chapter_title = parts[1].strip() if len(parts) > 1 else ''
+            
+            if is_chapter:
+                if current_chapter:
+                    chapters.append(current_chapter)
                 current_chapter = {
-                    'num': int(chapter_num) if chapter_num.isdigit() else 0,
+                    'num': chapter_num,
                     'title': chapter_title,
                     'start_line': i,
                     'end_line': len(lines),
@@ -82,6 +101,16 @@ class OpenAIFAISSIndexBuilder:
         
         if current_chapter:
             chapters.append(current_chapter)
+        
+        # If no chapters found, treat entire document as one chapter
+        if not chapters:
+            chapters.append({
+                'num': 1,
+                'title': 'Document',
+                'start_line': 0,
+                'end_line': len(lines),
+                'subsections': []
+            })
         
         # Set end lines
         for i in range(len(chapters) - 1):
