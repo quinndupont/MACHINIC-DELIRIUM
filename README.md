@@ -62,7 +62,6 @@ Your API key is stored securely in an HTTP-only session cookie and is only used 
 
 ## Deployment
 
-- **PHP Deployment**: See [PHP_DEPLOYMENT.md](PHP_DEPLOYMENT.md) for Apache/PHP setup
-- **Flask Deployment**: See [DEPLOYMENT.md](DEPLOYMENT.md) for Flask/WSGI setup
-- **Production Setup**: See [PRODUCTION_SETUP.md](PRODUCTION_SETUP.md) for detailed RAG system setup
+- **PHP Deployment**: See [PHP_DEPLOYMENT.md](PHP_DEPLOYMENT.md) for Apache/PHP setup and production configuration
+- **FAISS Installation**: See [INSTALL_FAISS.md](INSTALL_FAISS.md) if you encounter installation issues
 
