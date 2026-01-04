@@ -13,21 +13,34 @@ from sentence_transformers import SentenceTransformer
 import re
 
 def keyword_search(chunks, query, k):
-    """Find chunks containing query keywords."""
+    """Find chunks containing query keywords with improved exact matching."""
     query_lower = query.lower()
-    query_words = set(re.findall(r'\b\w+\b', query_lower))
+    query_original = query  # Keep original for exact case-sensitive match
+    
+    # Extract words (including hyphenated words)
+    query_words = set(re.findall(r'\b[\w-]+\b', query_lower))
+    # Also try splitting on hyphens for compound names
+    query_words.update(re.findall(r'\w+', query_lower))
     
     scores = []
     for idx, chunk in enumerate(chunks):
         chunk_lower = chunk.lower()
-        chunk_words = set(re.findall(r'\b\w+\b', chunk_lower))
+        chunk_original = chunks[idx]  # Keep original for exact match
         
-        # Count word matches
+        # Exact phrase match (case-insensitive) - highest priority
+        exact_phrase_count_ci = chunk_lower.count(query_lower)
+        
+        # Exact phrase match (case-sensitive) - even higher priority
+        exact_phrase_count_cs = chunk_original.count(query_original)
+        
+        # Word matches (including hyphenated words)
+        chunk_words = set(re.findall(r'\b[\w-]+\b', chunk_lower))
+        chunk_words.update(re.findall(r'\w+', chunk_lower))
         word_matches = len(query_words.intersection(chunk_words))
-        exact_phrase_count = chunk_lower.count(query_lower)
         
-        # Weight exact phrase matches more heavily
-        score = word_matches + (exact_phrase_count * 10)
+        # Calculate score with heavy weighting for exact matches
+        # Case-sensitive exact match gets highest score
+        score = (exact_phrase_count_cs * 100) + (exact_phrase_count_ci * 50) + word_matches
         
         if score > 0:
             scores.append((idx, score))
@@ -74,41 +87,64 @@ def main():
         # Step 2: Keyword search
         keyword_indices = keyword_search(chunks, query_text, k * 2)
         
-        # Step 3: Combine results
-        # Create score map: index -> (semantic_score, keyword_score)
+        # Step 3: Combine results with improved exact match prioritization
+        # Check for exact phrase matches in chunks
+        query_lower = query_text.lower()
+        exact_match_indices = set()
+        for idx, chunk in enumerate(chunks):
+            if query_lower in chunk.lower() or query_text in chunk:
+                exact_match_indices.add(idx)
+        
+        # Create score map: index -> (semantic_score, keyword_score, exact_match)
         combined_scores = {}
         
         # Add semantic results
         for i, idx in enumerate(semantic_indices[0]):
             if idx not in combined_scores:
-                combined_scores[idx] = {'semantic': float(similarities[0][i]), 'keyword': 0.0}
+                combined_scores[idx] = {
+                    'semantic': float(similarities[0][i]), 
+                    'keyword': 0.0,
+                    'exact_match': idx in exact_match_indices
+                }
         
-        # Add keyword results
+        # Add keyword results with exact match boost
         for idx in keyword_indices:
+            is_exact = idx in exact_match_indices
             if idx in combined_scores:
                 combined_scores[idx]['keyword'] = 1.0
+                combined_scores[idx]['exact_match'] = is_exact
             else:
-                combined_scores[idx] = {'semantic': 0.0, 'keyword': 1.0}
+                combined_scores[idx] = {
+                    'semantic': 0.0, 
+                    'keyword': 1.0,
+                    'exact_match': is_exact
+                }
         
-        # Calculate combined scores (weighted)
-        semantic_weight = 0.7
+        # Calculate combined scores (weighted, with heavy boost for exact matches)
+        semantic_weight = 0.4  # Reduced to prioritize exact matches
         keyword_weight = 0.3
+        exact_match_boost = 0.6  # Heavy boost for exact matches
         
         final_scores = []
         for idx, scores in combined_scores.items():
             # Normalize semantic score (0-1 range)
             semantic_norm = max(0, scores['semantic'])  # FAISS IP can be negative
-            combined = (semantic_norm * semantic_weight) + (scores['keyword'] * keyword_weight)
-            final_scores.append((idx, combined, scores['semantic'], scores['keyword']))
+            keyword_score = scores['keyword']
+            exact_bonus = exact_match_boost if scores['exact_match'] else 0.0
+            
+            # Exact matches get heavy boost
+            combined = (semantic_norm * semantic_weight) + (keyword_score * keyword_weight) + exact_bonus
+            final_scores.append((idx, combined, scores['semantic'], scores['keyword'], scores['exact_match']))
         
         # Sort by combined score
         final_scores.sort(key=lambda x: x[1], reverse=True)
         
         # Return top k (convert numpy int64 to Python int)
         result = {
-            'indices': [int(idx) for idx, _, _, _ in final_scores[:k]],
-            'similarities': [float(sem) for _, _, sem, _ in final_scores[:k]],
-            'combined_scores': [float(comb) for _, comb, _, _ in final_scores[:k]]
+            'indices': [int(idx) for idx, _, _, _, _ in final_scores[:k]],
+            'similarities': [float(sem) for _, _, sem, _, _ in final_scores[:k]],
+            'combined_scores': [float(comb) for _, comb, _, _, _ in final_scores[:k]],
+            'exact_matches': [bool(exact) for _, _, _, _, exact in final_scores[:k]]
         }
         print(json.dumps(result))
         
