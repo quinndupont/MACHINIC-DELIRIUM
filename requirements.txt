@@ -4,8 +4,8 @@ openai
 tiktoken
 markdown
 gunicorn
-faiss-cpu
-numpy
+numpy<2.0.0
 sentence-transformers
 torch
+faiss-cpu
 
