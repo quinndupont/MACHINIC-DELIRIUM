@@ -67,6 +67,11 @@ function api_define($data) {
     
     $context_text = implode("\n---\n\n", $context_parts);
     
+    // Log context statistics for debugging
+    $context_length = strlen($context_text);
+    $context_tokens_estimate = intval($context_length / 4); // Rough estimate: ~4 chars per token
+    error_log("RAG Context (define): " . count($rag_results) . " chunks, ~" . $context_tokens_estimate . " tokens, " . $context_length . " chars");
+    
     // If no context found, add a note
     if (empty($context_text)) {
         $context_text = "[Note: No relevant passages found in the text for this term.]";
