@@ -117,10 +117,76 @@ conda install -c conda-forge numpy=1.26.4 faiss-cpu
 pip install sentence-transformers torch
 ```
 
-## Solution 5: Alternative - Use faiss-cpu from conda-forge via pip
+## Solution 5: No Sudo Access? Use Conda/Miniconda (RECOMMENDED)
+
+If you don't have sudo access, **conda is your best option**:
+
+### Install Miniconda (No sudo required)
 
 ```bash
+cd ~
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh -b -p ~/miniconda3
+~/miniconda3/bin/conda init
+source ~/.bashrc
+```
+
+### Then install everything via conda
+
+```bash
+conda create -n anti-oedipus python=3.11 -y
+conda activate anti-oedipus
+conda install -c conda-forge numpy=1.26.4 faiss-cpu -y
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install sentence-transformers
+```
+
+### Update config.php
+
+```php
+'PYTHON_PATH' => '/home/public/miniconda3/envs/anti-oedipus/bin/python3',
+```
+
+## Solution 6: Try Conda-Forge via pip (Alternative)
+
+If conda isn't available, try installing from conda-forge:
+
+```bash
+pip install --index-url https://pypi.anaconda.org/conda-forge/simple numpy==1.26.4
 pip install --index-url https://pypi.anaconda.org/conda-forge/simple faiss-cpu
+```
+
+## Solution 7: Use Alternative Embedding Library (Last Resort)
+
+If FAISS installation continues to fail, you can use `annoy` (pure Python, no BLAS):
+
+```bash
+pip install annoy numpy sentence-transformers
+```
+
+Then modify `search_faiss.py` to use Annoy instead (though this is less optimal).
+
+## Quick Start: No Sudo Access
+
+**Easiest path without sudo:**
+
+1. Install Miniconda:
+```bash
+bash install_miniconda.sh
+source ~/.bashrc
+```
+
+2. Install dependencies:
+```bash
+bash install_without_sudo.sh
+```
+
+3. Or manually:
+```bash
+conda create -n anti-oedipus python=3.11 -y
+conda activate anti-oedipus
+conda install -c conda-forge numpy=1.26.4 faiss-cpu -y
+pip install torch sentence-transformers
 ```
 
 ## Verify Installation
