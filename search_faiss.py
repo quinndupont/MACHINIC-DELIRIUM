@@ -30,7 +30,7 @@ def main():
         if query_vector.ndim == 1:
             query_vector = query_vector.reshape(1, -1)
         
-        # Ensure vector is normalized (should already be normalized from embed_query.py)
+        # Ensure vector is normalized (should already be normalized from embed_query_openai.py)
         faiss.normalize_L2(query_vector)
         
         # Search - IndexIDMap returns the mapped IDs (chunk indices)
