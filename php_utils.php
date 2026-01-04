@@ -359,45 +359,87 @@ function call_python_rag($query, $k = 20, $use_hybrid = true) {
         
         // Fall back to semantic-only search if hybrid failed or not requested
         if (!$use_hybrid) {
-            $embed_script = $config['EMBED_SCRIPT'];
-            $search_script = $config['SEARCH_SCRIPT'];
+            // Try pure Python search first (no FAISS/NumPy required)
+            $search_pure_python = $config['SEARCH_PURE_PYTHON'] ?? null;
+            $embeddings_json = $config['EMBEDDINGS_JSON'] ?? null;
             
-            // Step 1: Convert query to embedding vector
-            $query_escaped = escapeshellarg($query);
-            // Redirect stderr to avoid Python version messages
-            $embed_command = "{$python_path} {$embed_script} {$query_escaped} 2>/dev/null";
-            $embed_output = shell_exec($embed_command);
-            
-            if ($embed_output === null || empty(trim($embed_output))) {
-                // Try with stderr capture for debugging
-                $embed_command_debug = "{$python_path} {$embed_script} {$query_escaped} 2>&1";
-                $embed_output_debug = shell_exec($embed_command_debug);
-                error_log("Embed query returned null/empty output. Debug: " . substr($embed_output_debug, 0, 300));
-                return simple_text_search($query, $k);
-            }
-            
-            // Extract JSON from output if there's extra text
-            $json_start = strpos($embed_output, '[');
-            $json_end = strrpos($embed_output, ']');
-            if ($json_start !== false && $json_end !== false && $json_end > $json_start) {
-                $json_output = substr($embed_output, $json_start, $json_end - $json_start + 1);
+            if ($search_pure_python && $embeddings_json && file_exists($search_pure_python) && file_exists($embeddings_json)) {
+                // Use pure Python search (no FAISS needed)
+                $embed_script = $config['EMBED_SCRIPT'] ?? $config['EMBED_SCRIPT'] ?? __DIR__ . '/embed_query_openai.py';
+                
+                // Step 1: Convert query to embedding vector
+                $query_escaped = escapeshellarg($query);
+                $embed_command = "{$python_path} {$embed_script} {$query_escaped} 2>/dev/null";
+                $embed_output = shell_exec($embed_command);
+                
+                if ($embed_output === null || empty(trim($embed_output))) {
+                    error_log("Pure Python embed query returned null/empty output");
+                    return simple_text_search($query, $k);
+                }
+                
+                // Extract JSON from output
+                $json_start = strpos($embed_output, '[');
+                $json_end = strrpos($embed_output, ']');
+                if ($json_start !== false && $json_end !== false && $json_end > $json_start) {
+                    $json_output = substr($embed_output, $json_start, $json_end - $json_start + 1);
+                } else {
+                    $json_output = $embed_output;
+                }
+                
+                $query_vector = json_decode($json_output, true);
+                if (json_last_error() !== JSON_ERROR_NONE || isset($query_vector['error'])) {
+                    error_log("Pure Python embed query error: " . ($query_vector['error'] ?? json_last_error_msg()));
+                    return simple_text_search($query, $k);
+                }
+                
+                // Step 2: Search using pure Python
+                $vector_json = escapeshellarg(json_encode($query_vector));
+                $embeddings_path_escaped = escapeshellarg($embeddings_json);
+                $k_escaped = escapeshellarg($k);
+                $search_command = "{$python_path} {$search_pure_python} {$embeddings_path_escaped} {$vector_json} {$k_escaped} 2>/dev/null";
+                $search_output = shell_exec($search_command);
             } else {
-                $json_output = $embed_output;
+                // Fall back to FAISS search
+                $embed_script = $config['EMBED_SCRIPT'];
+                $search_script = $config['SEARCH_SCRIPT'];
+                
+                // Step 1: Convert query to embedding vector
+                $query_escaped = escapeshellarg($query);
+                // Redirect stderr to avoid Python version messages
+                $embed_command = "{$python_path} {$embed_script} {$query_escaped} 2>/dev/null";
+                $embed_output = shell_exec($embed_command);
+                
+                if ($embed_output === null || empty(trim($embed_output))) {
+                    // Try with stderr capture for debugging
+                    $embed_command_debug = "{$python_path} {$embed_script} {$query_escaped} 2>&1";
+                    $embed_output_debug = shell_exec($embed_command_debug);
+                    error_log("Embed query returned null/empty output. Debug: " . substr($embed_output_debug, 0, 300));
+                    return simple_text_search($query, $k);
+                }
+                
+                // Extract JSON from output if there's extra text
+                $json_start = strpos($embed_output, '[');
+                $json_end = strrpos($embed_output, ']');
+                if ($json_start !== false && $json_end !== false && $json_end > $json_start) {
+                    $json_output = substr($embed_output, $json_start, $json_end - $json_start + 1);
+                } else {
+                    $json_output = $embed_output;
+                }
+                
+                $query_vector = json_decode($json_output, true);
+                if (json_last_error() !== JSON_ERROR_NONE || isset($query_vector['error'])) {
+                    error_log("Embed query error: " . ($query_vector['error'] ?? json_last_error_msg()) . ". Output: " . substr($embed_output, 0, 200));
+                    return simple_text_search($query, $k);
+                }
+                
+                // Step 2: Search FAISS index
+                $vector_json = escapeshellarg(json_encode($query_vector));
+                $index_path_escaped = escapeshellarg($index_path);
+                $k_escaped = escapeshellarg($k);
+                // Redirect stderr to avoid Python version messages
+                $search_command = "{$python_path} {$search_script} {$index_path_escaped} {$vector_json} {$k_escaped} 2>/dev/null";
+                $search_output = shell_exec($search_command);
             }
-            
-            $query_vector = json_decode($json_output, true);
-            if (json_last_error() !== JSON_ERROR_NONE || isset($query_vector['error'])) {
-                error_log("Embed query error: " . ($query_vector['error'] ?? json_last_error_msg()) . ". Output: " . substr($embed_output, 0, 200));
-                return simple_text_search($query, $k);
-            }
-            
-            // Step 2: Search FAISS index
-            $vector_json = escapeshellarg(json_encode($query_vector));
-            $index_path_escaped = escapeshellarg($index_path);
-            $k_escaped = escapeshellarg($k);
-            // Redirect stderr to avoid Python version messages
-            $search_command = "{$python_path} {$search_script} {$index_path_escaped} {$vector_json} {$k_escaped} 2>/dev/null";
-            $search_output = shell_exec($search_command);
             
             if ($search_output === null || empty(trim($search_output))) {
                 error_log("Search FAISS returned null/empty output. Command: " . $search_command);

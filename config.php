@@ -59,7 +59,11 @@ $config = [
     'SEARCH_SCRIPT' => __DIR__ . '/search_faiss.py', // Search FAISS index
     'HYBRID_SCRIPT' => __DIR__ . '/search_hybrid.py', // Hybrid semantic + keyword search
     'FAISS_INDEX' => __DIR__ . '/faiss_index.bin',
-    'CHUNKS_JSON' => __DIR__ . '/chunks.json' // Text chunks and metadata
+    'CHUNKS_JSON' => __DIR__ . '/chunks.json', // Text chunks and metadata
+    // Pure Python alternatives (no FAISS/NumPy required):
+    'SEARCH_PURE_PYTHON' => __DIR__ . '/search_pure_python.py', // Pure Python search
+    'HYBRID_PURE_PYTHON' => __DIR__ . '/search_hybrid_pure_python.py', // Pure Python hybrid search
+    'EMBEDDINGS_JSON' => __DIR__ . '/embeddings.json' // Embeddings for pure Python search
 ];
 
 // Set session config
