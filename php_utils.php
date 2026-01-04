@@ -325,8 +325,15 @@ function call_python_rag($query, $k = 20, $use_hybrid = true) {
                     // Hybrid search succeeded
                     $indices = $search_result['indices'];
                     $similarities = $search_result['similarities'] ?? [];
+                    $exact_matches = $search_result['exact_matches'] ?? [];
+                    
+                    // Log exact matches for debugging
+                    if (!empty($exact_matches)) {
+                        $exact_count = count(array_filter($exact_matches));
+                        error_log("Hybrid search found {$exact_count} exact matches for query: " . substr($query, 0, 50));
+                    }
                 } else {
-                    error_log("Hybrid search error: " . ($search_result['error'] ?? json_last_error_msg()) . ". Falling back to semantic search.");
+                    error_log("Hybrid search error: " . ($search_result['error'] ?? json_last_error_msg()) . ". Output: " . substr($search_output, 0, 200) . ". Falling back to semantic search.");
                     $use_hybrid = false;
                 }
             }
@@ -395,22 +402,41 @@ function call_python_rag($query, $k = 20, $use_hybrid = true) {
         $chunks = $chunks_data['chunks'];
         $metadata = $chunks_data['metadata'];
         
-        // Build results array
+        // Build results array, prioritizing exact matches
         $results = [];
+        $exact_match_results = [];
+        $other_results = [];
+        
         foreach ($indices as $idx => $chunk_idx) {
             if ($chunk_idx >= 0 && $chunk_idx < count($chunks)) {
                 $chunk_meta = $metadata[$chunk_idx] ?? [];
-                $results[] = [
+                // Check if this chunk index is in exact_matches array
+                // exact_matches is indexed by result position, not chunk index
+                $is_exact = false;
+                if (is_array($exact_matches) && isset($exact_matches[$idx])) {
+                    $is_exact = (bool)$exact_matches[$idx];
+                }
+                
+                $result_item = [
                     'text' => $chunks[$chunk_idx],
                     'chapter_num' => $chunk_meta['chapter_num'] ?? 0,
                     'chapter_title' => $chunk_meta['chapter_title'] ?? 'Unknown',
                     'subsection' => $chunk_meta['subsection'] ?? '',
-                    'score' => $similarities[$idx] ?? 0.0
+                    'score' => isset($similarities[$idx]) ? floatval($similarities[$idx]) : 0.0,
+                    'exact_match' => $is_exact
                 ];
+                
+                // Separate exact matches from other results
+                if ($is_exact) {
+                    $exact_match_results[] = $result_item;
+                } else {
+                    $other_results[] = $result_item;
+                }
             }
         }
         
-        return $results;
+        // Return exact matches first, then other results
+        return array_merge($exact_match_results, $other_results);
         
     } catch (Exception $e) {
         error_log("Python RAG error: " . $e->getMessage());

@@ -88,11 +88,17 @@ def main():
         keyword_indices = keyword_search(chunks, query_text, k * 2)
         
         # Step 3: Combine results with improved exact match prioritization
-        # Check for exact phrase matches in chunks
-        query_lower = query_text.lower()
+        # Check for exact phrase matches in chunks (case-insensitive)
+        query_lower = query_text.lower().strip()
+        query_original = query_text.strip()
         exact_match_indices = set()
         for idx, chunk in enumerate(chunks):
-            if query_lower in chunk.lower() or query_text in chunk:
+            chunk_lower = chunk.lower()
+            # Check for exact phrase match (case-insensitive)
+            if query_lower in chunk_lower:
+                exact_match_indices.add(idx)
+            # Also check case-sensitive for better precision
+            elif query_original in chunk:
                 exact_match_indices.add(idx)
         
         # Create score map: index -> (semantic_score, keyword_score, exact_match)
