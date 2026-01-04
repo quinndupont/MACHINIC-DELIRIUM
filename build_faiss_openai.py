@@ -12,6 +12,7 @@ Usage: python build_faiss_openai.py <markdown_file> [api_key]
 import os
 import sys
 import json
+import re
 import numpy as np
 import faiss
 from openai import OpenAI
@@ -66,7 +67,6 @@ class OpenAIFAISSIndexBuilder:
             chapter_title = ''
             
             # Format: ## 1 TITLE or ## NUMBER TITLE
-            import re
             match = re.match(r'^##\s+(\d+)\s+(.+)$', line.strip())
             if match:
                 is_chapter = True

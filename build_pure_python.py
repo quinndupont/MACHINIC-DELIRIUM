@@ -12,6 +12,7 @@ Usage: python build_pure_python.py <markdown_file> [api_key]
 import os
 import sys
 import json
+import re
 from openai import OpenAI
 
 class PurePythonIndexBuilder:
@@ -63,7 +64,6 @@ class PurePythonIndexBuilder:
             chapter_title = ''
             
             # Format: ## 1 TITLE or ## NUMBER TITLE
-            import re
             match = re.match(r'^##\s+(\d+)\s+(.+)$', line.strip())
             if match:
                 is_chapter = True
