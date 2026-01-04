@@ -26,11 +26,16 @@ Upload all project files to your NearlyFreeSpeech server, including:
 - `login.php` (login page)
 - `config.php` (configuration - see Step 3)
 - `php_utils.php` (utility functions)
-- `build_faiss_local.py` (Script to build FAISS index with local embeddings)
-- `embed_query.py` (Script to convert query to embedding vector)
-- `search_faiss.py` (Script to search FAISS index)
-- `faiss_index.bin` (Precomputed FAISS index - build with build_faiss_local.py)
-- `chunks.json` (Text chunks and metadata - build with build_faiss_local.py)
+- `build_pure_python.py` (Recommended: Build index with OpenAI embeddings, pure Python)
+- `build_faiss_openai.py` (Alternative: Build FAISS index with OpenAI embeddings, if FAISS available)
+- `embed_query_openai.py` (Script to convert query to embedding vector via OpenAI)
+- `search_pure_python.py` (Pure Python search - no FAISS/NumPy needed)
+- `search_faiss.py` (FAISS search - if FAISS available)
+- `search_hybrid_pure_python.py` (Pure Python hybrid search)
+- `search_hybrid_openai.py` (FAISS hybrid search with OpenAI embeddings)
+- `chunks.json` (Text chunks and metadata)
+- `embeddings.json` (Embeddings for pure Python search)
+- `faiss_index.bin` (FAISS index - only if using FAISS)
 - `templates/` directory
 - `static/` directory
 - `Anti-Oedipus.md` (markdown file)
@@ -42,7 +47,9 @@ Upload all project files to your NearlyFreeSpeech server, including:
 - `__pycache__/` directories
 - Old RAG files (no longer needed): `rag.py`, `rag_api.py`, `faiss_api.py`, `embeddings_cache.pkl`, `faiss_metadata.pkl`
 
-**Note**: You can either upload `faiss_index.bin` and `chunks.json` after building them locally, or build them on the server using `build_faiss_local.py`.
+**Note**: 
+- **Recommended**: Build `chunks.json` and `embeddings.json` locally using `build_pure_python.py`, then upload to production
+- **Alternative**: If FAISS works on your server, build `faiss_index.bin` and `chunks.json` using `build_faiss_openai.py`
 
 ## Step 3: Configure
 
@@ -57,7 +64,7 @@ $config = [
     'FLASK_SECRET_KEY' => 'generate-a-random-secret-key-here',
     'MARKDOWN_FILE' => __DIR__ . '/Anti-Oedipus.md',
     'PYTHON_PATH' => '/usr/local/bin/python', // Update after checking with 'which python' or 'which python3'
-    'EMBED_SCRIPT' => __DIR__ . '/embed_query.py', // Convert query to vector
+    'EMBED_SCRIPT' => __DIR__ . '/embed_query_openai.py', // Convert query to vector via OpenAI
     'SEARCH_SCRIPT' => __DIR__ . '/search_faiss.py', // Search FAISS index
     'HYBRID_SCRIPT' => __DIR__ . '/search_hybrid.py', // Hybrid semantic + keyword search
     'FAISS_INDEX' => __DIR__ . '/faiss_index.bin',
@@ -81,7 +88,7 @@ If NearlyFreeSpeech supports `.htaccess` environment variables, you can set them
 chmod 644 *.php
 
 # Make Python scripts executable (if using Python)
-chmod 755 build_faiss_local.py embed_query.py search_faiss.py
+chmod 755 build_pure_python.py embed_query_openai.py search_pure_python.py search_faiss.py
 
 # Restrict config.php permissions
 chmod 600 config.php
@@ -122,8 +129,11 @@ python3 -c "import faiss, sentence_transformers; print('All modules installed!')
 # Activate venv if not already active
 source venv/bin/activate
 
-# Build FAISS index using local embeddings (no API key needed)
-python build_faiss_local.py Anti-Oedipus.md
+# Build index using OpenAI embeddings (recommended: pure Python)
+python build_pure_python.py Anti-Oedipus.md
+
+# OR if FAISS is available:
+# python build_faiss_openai.py Anti-Oedipus.md
 ```
 
 This creates:
@@ -200,20 +210,26 @@ php_value session.save_path "/path/to/your/project/sessions"
 
 2. **Test embedding script**:
    ```bash
-   python3 embed_query.py "test query"
+   python3 embed_query_openai.py "test query"
    ```
-   Should output a JSON array of 384 numbers.
+   Should output a JSON array of 1536 numbers (OpenAI embeddings).
 
-3. **Test search script**:
+3. **Test search script** (pure Python):
    ```bash
-   QUERY_VEC=$(python3 embed_query.py "test query")
-   python3 search_faiss.py faiss_index.bin "$QUERY_VEC" 5
+   QUERY_VEC=$(python3 embed_query_openai.py "test query")
+   python3 search_pure_python.py embeddings.json "$QUERY_VEC" 5
    ```
    Should output JSON with indices and similarities.
 
-4. Check file permissions on scripts (should be 755):
+4. **OR test FAISS search** (if FAISS available):
    ```bash
-   chmod 755 embed_query.py search_faiss.py
+   QUERY_VEC=$(python3 embed_query_openai.py "test query")
+   python3 search_faiss.py faiss_index.bin "$QUERY_VEC" 5
+   ```
+
+5. Check file permissions on scripts (should be 755):
+   ```bash
+   chmod 755 embed_query_openai.py search_pure_python.py search_faiss.py
    ```
 
 5. Check that FAISS index files are readable:
@@ -225,7 +241,11 @@ php_value session.save_path "/path/to/your/project/sessions"
 
 7. Verify dependencies are installed:
    ```bash
-   python3 -c "import faiss; import sentence_transformers; print('Dependencies OK')"
+   # For pure Python solution:
+   python3 -c "import openai; print('OpenAI library OK')"
+   
+   # OR if using FAISS:
+   # python3 -c "import faiss; print('FAISS OK')"
    ```
 
 ## Differences from Flask Version

@@ -55,13 +55,14 @@ $config = [
     'FLASK_SECRET_KEY' => getenv('FLASK_SECRET_KEY') ?: 'dev-secret-key-change-in-production',
     'MARKDOWN_FILE' => __DIR__ . '/Anti-Oedipus.md',
     'PYTHON_PATH' => '/venv/bin/python3', // Default system Python - update to your server's path (use: which python3)
-    'EMBED_SCRIPT' => __DIR__ . '/embed_query.py', // Convert query to vector
-    'SEARCH_SCRIPT' => __DIR__ . '/search_faiss.py', // Search FAISS index
-    'HYBRID_SCRIPT' => __DIR__ . '/search_hybrid.py', // Hybrid semantic + keyword search
-    'FAISS_INDEX' => __DIR__ . '/faiss_index.bin',
+    // OpenAI embeddings (works without PyTorch/sentence-transformers)
+    'EMBED_SCRIPT' => __DIR__ . '/embed_query_openai.py', // Convert query to vector via OpenAI
+    'SEARCH_SCRIPT' => __DIR__ . '/search_faiss.py', // Search FAISS index (if FAISS available)
+    'HYBRID_SCRIPT' => __DIR__ . '/search_hybrid_openai.py', // Hybrid search with OpenAI embeddings (if FAISS available)
+    'FAISS_INDEX' => __DIR__ . '/faiss_index.bin', // FAISS index (if using FAISS)
     'CHUNKS_JSON' => __DIR__ . '/chunks.json', // Text chunks and metadata
-    // Pure Python alternatives (no FAISS/NumPy required):
-    'SEARCH_PURE_PYTHON' => __DIR__ . '/search_pure_python.py', // Pure Python search
+    // Pure Python alternatives (no FAISS/NumPy required - recommended for FreeBSD):
+    'SEARCH_PURE_PYTHON' => __DIR__ . '/search_pure_python.py', // Pure Python search (no dependencies)
     'HYBRID_PURE_PYTHON' => __DIR__ . '/search_hybrid_pure_python.py', // Pure Python hybrid search
     'EMBEDDINGS_JSON' => __DIR__ . '/embeddings.json' // Embeddings for pure Python search
 ];

@@ -14,30 +14,35 @@ A modern web application for reading *Anti-Oedipus* by Gilles Deleuze and Félix
 
 1. **Install Dependencies**:
    ```bash
-   pip install -r requirements.txt
+   pip install openai  # For pure Python solution (recommended)
+   # OR if using FAISS:
+   # pip install openai numpy faiss-cpu
    ```
-   (Dependencies: `flask`, `python-dotenv`, `openai`, `numpy`, `faiss-cpu`, `sentence-transformers`, `torch`, `tiktoken`)
+   **Recommended**: Use pure Python solution (only needs `openai`). See [PURE_PYTHON_SETUP.md](PURE_PYTHON_SETUP.md)
 
 2. **Configuration**:
    Create a `.env` file in the root directory with the following variables:
-   - `OPENAI_API_KEY`: Server's OpenAI API Key (required for LLM chat/define features, not for embeddings).
+   - `OPENAI_API_KEY`: Server's OpenAI API Key (required for embeddings and LLM chat/define features).
    - `APP_PASSWORD`: The password to access the app (optional - users can provide their own API key).
    - `FLASK_SECRET_KEY`: Secret key for Flask sessions (required for production - generate a strong random key).
    - `FLASK_ENV`: Set to `production` for secure cookies (required for HTTPS deployments).
 
-3. **Build FAISS Index** (Required for RAG):
-   Before running the server, you must precompute the FAISS index using local embeddings:
+3. **Build Index** (Required for RAG):
+   **Option A: Pure Python (Recommended - no FAISS/NumPy needed)**:
    ```bash
-   python build_faiss_local.py Anti-Oedipus.md
+   python build_pure_python.py Anti-Oedipus.md
    ```
+   Creates: `chunks.json` and `embeddings.json`
    
-   This will create:
-   - `faiss_index.bin`: Precomputed FAISS vector index (~2.3 MB)
-   - `chunks.json`: Text chunks and metadata (~1.3 MB)
+   **Option B: FAISS (if FAISS available)**:
+   ```bash
+   python build_faiss_openai.py Anti-Oedipus.md
+   ```
+   Creates: `faiss_index.bin` and `chunks.json`
    
    **Note**: 
    - This step only needs to be run once (or when the markdown file changes)
-   - Uses local embedding model (no API calls needed)
+   - Uses OpenAI embeddings (~$0.01-0.02 one-time cost)
    - Takes about 10-15 seconds to build
    - Creates ~1500 overlapping chunks of ~800 characters each
 

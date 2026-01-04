@@ -4,8 +4,8 @@ openai
 tiktoken
 markdown
 gunicorn
-numpy<2.0.0
-sentence-transformers
-torch
-faiss-cpu
+# Optional: Only needed if using FAISS (may not work on FreeBSD without BLAS libraries)
+# numpy<2.0.0
+# faiss-cpu
+# Pure Python solution (recommended): Only needs 'openai' - no other dependencies!
 
