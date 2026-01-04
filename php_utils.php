@@ -310,16 +310,36 @@ function call_python_rag($query, $k = 20, $use_hybrid = true) {
     
     try {
         // Use hybrid search if available, otherwise fall back to semantic-only
-        if ($use_hybrid && isset($config['HYBRID_SCRIPT']) && file_exists($config['HYBRID_SCRIPT'])) {
+        // Try pure Python hybrid first (no FAISS needed), then FAISS hybrid
+        $hybrid_script = null;
+        if ($use_hybrid) {
+            // Try pure Python hybrid first
+            if (isset($config['HYBRID_PURE_PYTHON']) && file_exists($config['HYBRID_PURE_PYTHON']) && 
+                isset($config['EMBEDDINGS_JSON']) && file_exists($config['EMBEDDINGS_JSON'])) {
+                $hybrid_script = $config['HYBRID_PURE_PYTHON'];
+                $embeddings_path = $config['EMBEDDINGS_JSON'];
+            } elseif (isset($config['HYBRID_SCRIPT']) && file_exists($config['HYBRID_SCRIPT'])) {
+                $hybrid_script = $config['HYBRID_SCRIPT'];
+                $embeddings_path = null;
+            }
+        }
+        
+        if ($use_hybrid && $hybrid_script) {
             // Hybrid search: combines semantic + keyword matching
-            $hybrid_script = $config['HYBRID_SCRIPT'];
             $query_escaped = escapeshellarg($query);
-            $index_path_escaped = escapeshellarg($index_path);
             $chunks_path_escaped = escapeshellarg($chunks_path);
             $k_escaped = escapeshellarg($k);
             
-            // Redirect stderr to /dev/null to avoid Python version messages, capture stdout
-            $search_command = "{$python_path} {$hybrid_script} {$index_path_escaped} {$chunks_path_escaped} {$query_escaped} {$k_escaped} 2>/dev/null";
+            if ($embeddings_path) {
+                // Pure Python hybrid search
+                $embeddings_path_escaped = escapeshellarg($embeddings_path);
+                $search_command = "{$python_path} {$hybrid_script} {$embeddings_path_escaped} {$chunks_path_escaped} {$query_escaped} {$k_escaped} 2>/dev/null";
+            } else {
+                // FAISS hybrid search
+                $index_path_escaped = escapeshellarg($index_path);
+                $search_command = "{$python_path} {$hybrid_script} {$index_path_escaped} {$chunks_path_escaped} {$query_escaped} {$k_escaped} 2>/dev/null";
+            }
+            
             $search_output = shell_exec($search_command);
             
             if ($search_output === null || empty(trim($search_output))) {
