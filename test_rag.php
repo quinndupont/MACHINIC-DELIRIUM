@@ -19,15 +19,16 @@ if (!is_python_available()) {
     echo "  - Python path: " . $config['PYTHON_PATH'] . " (" . (file_exists($config['PYTHON_PATH']) ? 'EXISTS' : 'MISSING') . ")\n";
     
     // Try to find Python automatically
-    $python_candidates = ['/usr/local/bin/python', '/usr/bin/python3', '/usr/bin/python', 'python3', 'python'];
+    $python_candidates = ['/usr/local/bin/python3.11', '/usr/local/bin/python3', '/usr/local/bin/python', '/usr/bin/python3.11', '/usr/bin/python3', '/usr/bin/python', 'python3.11', 'python3', 'python'];
     $found_python = null;
     foreach ($python_candidates as $candidate) {
         $output = [];
         $return_var = 0;
-        @exec("$candidate --version 2>&1", $output, $return_var);
-        if ($return_var === 0) {
+        // Test if Python can actually run a script (not just show version)
+        @exec("$candidate -c 'import sys; print(\"OK\")' 2>&1", $output, $return_var);
+        if ($return_var === 0 && implode('', $output) === 'OK') {
             $found_python = $candidate;
-            echo "  - Found Python at: $candidate\n";
+            echo "  - Found working Python at: $candidate\n";
             break;
         }
     }

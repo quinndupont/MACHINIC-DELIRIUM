@@ -318,14 +318,27 @@ function call_python_rag($query, $k = 20, $use_hybrid = true) {
             $chunks_path_escaped = escapeshellarg($chunks_path);
             $k_escaped = escapeshellarg($k);
             
-            $search_command = "{$python_path} {$hybrid_script} {$index_path_escaped} {$chunks_path_escaped} {$query_escaped} {$k_escaped} 2>&1";
+            // Redirect stderr to /dev/null to avoid Python version messages, capture stdout
+            $search_command = "{$python_path} {$hybrid_script} {$index_path_escaped} {$chunks_path_escaped} {$query_escaped} {$k_escaped} 2>/dev/null";
             $search_output = shell_exec($search_command);
             
             if ($search_output === null || empty(trim($search_output))) {
-                error_log("Hybrid search returned null/empty output. Falling back to semantic search.");
+                // Try with stderr capture to see what the error is
+                $search_command_debug = "{$python_path} {$hybrid_script} {$index_path_escaped} {$chunks_path_escaped} {$query_escaped} {$k_escaped} 2>&1";
+                $search_output_debug = shell_exec($search_command_debug);
+                error_log("Hybrid search returned null/empty output. Debug output: " . substr($search_output_debug, 0, 500));
                 $use_hybrid = false;
             } else {
-                $search_result = json_decode($search_output, true);
+                // Try to extract JSON from output (in case there's extra text)
+                $json_start = strpos($search_output, '{');
+                $json_end = strrpos($search_output, '}');
+                if ($json_start !== false && $json_end !== false && $json_end > $json_start) {
+                    $json_output = substr($search_output, $json_start, $json_end - $json_start + 1);
+                } else {
+                    $json_output = $search_output;
+                }
+                
+                $search_result = json_decode($json_output, true);
                 if (json_last_error() === JSON_ERROR_NONE && isset($search_result['indices']) && is_array($search_result['indices'])) {
                     // Hybrid search succeeded
                     $indices = $search_result['indices'];
@@ -338,7 +351,7 @@ function call_python_rag($query, $k = 20, $use_hybrid = true) {
                         error_log("Hybrid search found {$exact_count} exact matches for query: " . substr($query, 0, 50));
                     }
                 } else {
-                    error_log("Hybrid search error: " . ($search_result['error'] ?? json_last_error_msg()) . ". Output: " . substr($search_output, 0, 200) . ". Falling back to semantic search.");
+                    error_log("Hybrid search JSON error: " . json_last_error_msg() . ". Output preview: " . substr($search_output, 0, 300));
                     $use_hybrid = false;
                 }
             }
@@ -351,17 +364,30 @@ function call_python_rag($query, $k = 20, $use_hybrid = true) {
             
             // Step 1: Convert query to embedding vector
             $query_escaped = escapeshellarg($query);
-            $embed_command = "{$python_path} {$embed_script} {$query_escaped} 2>&1";
+            // Redirect stderr to avoid Python version messages
+            $embed_command = "{$python_path} {$embed_script} {$query_escaped} 2>/dev/null";
             $embed_output = shell_exec($embed_command);
             
             if ($embed_output === null || empty(trim($embed_output))) {
-                error_log("Embed query returned null/empty output. Command: " . $embed_command);
+                // Try with stderr capture for debugging
+                $embed_command_debug = "{$python_path} {$embed_script} {$query_escaped} 2>&1";
+                $embed_output_debug = shell_exec($embed_command_debug);
+                error_log("Embed query returned null/empty output. Debug: " . substr($embed_output_debug, 0, 300));
                 return simple_text_search($query, $k);
             }
             
-            $query_vector = json_decode($embed_output, true);
+            // Extract JSON from output if there's extra text
+            $json_start = strpos($embed_output, '[');
+            $json_end = strrpos($embed_output, ']');
+            if ($json_start !== false && $json_end !== false && $json_end > $json_start) {
+                $json_output = substr($embed_output, $json_start, $json_end - $json_start + 1);
+            } else {
+                $json_output = $embed_output;
+            }
+            
+            $query_vector = json_decode($json_output, true);
             if (json_last_error() !== JSON_ERROR_NONE || isset($query_vector['error'])) {
-                error_log("Embed query error: " . ($query_vector['error'] ?? json_last_error_msg()));
+                error_log("Embed query error: " . ($query_vector['error'] ?? json_last_error_msg()) . ". Output: " . substr($embed_output, 0, 200));
                 return simple_text_search($query, $k);
             }
             
@@ -369,7 +395,8 @@ function call_python_rag($query, $k = 20, $use_hybrid = true) {
             $vector_json = escapeshellarg(json_encode($query_vector));
             $index_path_escaped = escapeshellarg($index_path);
             $k_escaped = escapeshellarg($k);
-            $search_command = "{$python_path} {$search_script} {$index_path_escaped} {$vector_json} {$k_escaped} 2>&1";
+            // Redirect stderr to avoid Python version messages
+            $search_command = "{$python_path} {$search_script} {$index_path_escaped} {$vector_json} {$k_escaped} 2>/dev/null";
             $search_output = shell_exec($search_command);
             
             if ($search_output === null || empty(trim($search_output))) {
