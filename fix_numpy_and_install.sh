@@ -29,10 +29,28 @@ echo "Step 2: Upgrading pip..."
 pip install --upgrade pip setuptools wheel
 
 echo ""
-echo "Step 3: Installing NumPy with pre-built wheel..."
-if ! pip install --no-cache-dir --only-binary :all: numpy==1.26.4; then
-    echo "Pre-built wheel failed, trying regular install..."
-    pip install --no-cache-dir numpy==1.26.4
+echo "Step 3: Installing NumPy..."
+# Try multiple approaches
+if pip install --no-cache-dir --only-binary :all: numpy==1.26.4 2>/dev/null; then
+    echo "Installed NumPy from pre-built wheel"
+elif pip install --no-cache-dir numpy==1.26.4; then
+    echo "Installed NumPy (may need BLAS libraries)"
+elif pip install --no-cache-dir numpy==1.24.4; then
+    echo "Installed NumPy 1.24.4 (compatible version)"
+elif pip install --no-cache-dir "numpy<2.0.0"; then
+    echo "Installed latest NumPy < 2.0"
+else
+    echo ""
+    echo "❌ ERROR: Cannot install NumPy!"
+    echo ""
+    echo "You MUST install system BLAS libraries first:"
+    echo "  sudo apt-get install libopenblas-dev liblapack-dev libatlas-base-dev gfortran"
+    echo ""
+    echo "Or on CentOS/RHEL:"
+    echo "  sudo yum install openblas-devel lapack-devel atlas-devel gcc-gfortran"
+    echo ""
+    echo "Then run this script again."
+    exit 1
 fi
 
 echo ""

@@ -28,7 +28,22 @@ On CentOS/RHEL:
 sudo yum install openblas-devel lapack-devel atlas-devel gcc-gfortran
 ```
 
-### Step 3: Reinstall NumPy with Pre-built Wheel
+### Step 3: Install System BLAS Libraries (REQUIRED if no pre-built wheels)
+
+**You MUST do this first if pre-built wheels aren't available:**
+
+On Debian/Ubuntu:
+```bash
+sudo apt-get update
+sudo apt-get install libopenblas-dev liblapack-dev libatlas-base-dev gfortran
+```
+
+On CentOS/RHEL:
+```bash
+sudo yum install openblas-devel lapack-devel atlas-devel gcc-gfortran
+```
+
+### Step 4: Reinstall NumPy
 
 ```bash
 pip install --upgrade pip setuptools wheel
@@ -36,10 +51,12 @@ pip install --no-cache-dir numpy==1.26.4
 python3 -c "import numpy; print('✅ NumPy works:', numpy.__version__)"
 ```
 
-If NumPy still fails, try:
+If that fails, try:
 ```bash
-pip install --no-cache-dir --only-binary :all: numpy==1.26.4
+pip install --no-cache-dir "numpy<2.0.0"  # Install latest compatible version
 ```
+
+**Note**: If pre-built wheels aren't available for your platform, NumPy will compile from source, which REQUIRES the BLAS libraries above.
 
 ### Step 4: Install FAISS
 
