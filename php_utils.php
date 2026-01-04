@@ -286,12 +286,17 @@ function render_template($template, $vars = []) {
 function is_python_available() {
     global $config;
     $python_path = $config['PYTHON_PATH'];
+    
+    // Check if Python executable exists and works
     $output = [];
     $return_var = 0;
     @exec("{$python_path} --version 2>&1", $output, $return_var);
+    if ($return_var !== 0) {
+        return false;
+    }
+    
     // Check if FAISS index files exist and Python scripts are available
-    return $return_var === 0 && 
-           file_exists($config['EMBED_SCRIPT']) &&
+    return file_exists($config['EMBED_SCRIPT']) &&
            file_exists($config['SEARCH_SCRIPT']) &&
            file_exists($config['FAISS_INDEX']) &&
            file_exists($config['CHUNKS_JSON']);

@@ -16,10 +16,30 @@ echo str_repeat('=', 60) . "\n\n";
 if (!is_python_available()) {
     echo "ERROR: Python RAG not available!\n";
     echo "Check:\n";
-    echo "  - Python path: " . $config['PYTHON_PATH'] . "\n";
+    echo "  - Python path: " . $config['PYTHON_PATH'] . " (" . (file_exists($config['PYTHON_PATH']) ? 'EXISTS' : 'MISSING') . ")\n";
+    
+    // Try to find Python automatically
+    $python_candidates = ['/usr/local/bin/python', '/usr/bin/python3', '/usr/bin/python', 'python3', 'python'];
+    $found_python = null;
+    foreach ($python_candidates as $candidate) {
+        $output = [];
+        $return_var = 0;
+        @exec("$candidate --version 2>&1", $output, $return_var);
+        if ($return_var === 0) {
+            $found_python = $candidate;
+            echo "  - Found Python at: $candidate\n";
+            break;
+        }
+    }
+    
     echo "  - FAISS index: " . $config['FAISS_INDEX'] . " (" . (file_exists($config['FAISS_INDEX']) ? 'EXISTS' : 'MISSING') . ")\n";
     echo "  - Chunks JSON: " . $config['CHUNKS_JSON'] . " (" . (file_exists($config['CHUNKS_JSON']) ? 'EXISTS' : 'MISSING') . ")\n";
     echo "  - Hybrid script: " . $config['HYBRID_SCRIPT'] . " (" . (file_exists($config['HYBRID_SCRIPT']) ? 'EXISTS' : 'MISSING') . ")\n";
+    
+    if ($found_python) {
+        echo "\nSUGGESTION: Update config.php with:\n";
+        echo "  'PYTHON_PATH' => '$found_python',\n";
+    }
     exit(1);
 }
 
