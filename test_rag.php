@@ -18,18 +18,49 @@ if (!is_python_available()) {
     echo "Check:\n";
     echo "  - Python path: " . $config['PYTHON_PATH'] . " (" . (file_exists($config['PYTHON_PATH']) ? 'EXISTS' : 'MISSING') . ")\n";
     
-    // Try to find Python automatically
-    $python_candidates = ['/usr/local/bin/python3.11', '/usr/local/bin/python3', '/usr/local/bin/python', '/usr/bin/python3.11', '/usr/bin/python3', '/usr/bin/python', 'python3.11', 'python3', 'python'];
+    // Try to find Python automatically - check for venv first, then system Python
+    $project_dir = __DIR__;
+    $python_candidates = [
+        $project_dir . '/venv/bin/python3',  // Local venv
+        $project_dir . '/venv/bin/python',   // Local venv (alternative)
+        '/home/public/venv/bin/python3',      // Common venv location
+        '/home/public/venv/bin/python',       // Common venv location (alternative)
+        '/usr/local/bin/python3.11',
+        '/usr/local/bin/python3',
+        '/usr/local/bin/python',
+        '/usr/bin/python3.11',
+        '/usr/bin/python3',
+        '/usr/bin/python',
+        'python3.11',
+        'python3',
+        'python'
+    ];
     $found_python = null;
     foreach ($python_candidates as $candidate) {
         $output = [];
         $return_var = 0;
-        // Test if Python can actually run a script (not just show version)
-        @exec("$candidate -c 'import sys; print(\"OK\")' 2>&1", $output, $return_var);
+        // Test if Python can actually run and has required modules
+        @exec("$candidate -c 'import faiss, sentence_transformers; print(\"OK\")' 2>&1", $output, $return_var);
         if ($return_var === 0 && implode('', $output) === 'OK') {
             $found_python = $candidate;
-            echo "  - Found working Python at: $candidate\n";
+            echo "  - Found working Python with required modules at: $candidate\n";
             break;
+        }
+    }
+    
+    // If no Python with modules found, try to find any working Python
+    if (!$found_python) {
+        foreach ($python_candidates as $candidate) {
+            $output = [];
+            $return_var = 0;
+            @exec("$candidate -c 'import sys; print(\"OK\")' 2>&1", $output, $return_var);
+            if ($return_var === 0 && implode('', $output) === 'OK') {
+                $found_python = $candidate;
+                echo "  - Found Python (but missing modules) at: $candidate\n";
+                echo "    Missing modules: faiss, sentence_transformers\n";
+                echo "    Install with: $candidate -m pip install faiss-cpu sentence-transformers torch\n";
+                break;
+            }
         }
     }
     

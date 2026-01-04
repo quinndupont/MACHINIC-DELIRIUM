@@ -100,7 +100,18 @@ pip install -r requirements.txt
 
 Then update `config.php` to use the venv Python:
 ```php
-'PYTHON_PATH' => __DIR__ . '/venv/bin/python',
+'PYTHON_PATH' => __DIR__ . '/venv/bin/python3',
+```
+
+**Important**: Make sure the venv has all required packages installed:
+```bash
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+Verify the installation:
+```bash
+python3 -c "import faiss, sentence_transformers; print('All modules installed!')"
 ```
 
 ### Build FAISS Index
