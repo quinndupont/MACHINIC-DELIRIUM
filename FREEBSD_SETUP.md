@@ -32,25 +32,40 @@ pip install openai numpy faiss-cpu
 
 ### Step 2: Build Index Using OpenAI Embeddings
 
-Create a modified build script that uses OpenAI embeddings:
+Build the FAISS index using OpenAI embeddings:
 
 ```bash
-python build_faiss_openai.py Anti-Oedipus.md
+# Make sure OPENAI_API_KEY is set
+export OPENAI_API_KEY="sk-your-key-here"
+
+# Or pass it as argument:
+python build_faiss_openai.py Anti-Oedipus.md "sk-your-key-here"
 ```
 
 This will create:
 - `faiss_index.bin` (using OpenAI embeddings, 1536 dimensions)
 - `chunks.json` (same format)
 
+**Note**: This will make API calls to OpenAI (~$0.01-0.02 for a 300KB document, one-time cost).
+
 ### Step 3: Update config.php
+
+Update your `config.php` to use OpenAI embedding scripts:
 
 ```php
 'EMBED_SCRIPT' => __DIR__ . '/embed_query_openai.py',
+'HYBRID_SCRIPT' => __DIR__ . '/search_hybrid_openai.py',  // Optional: for hybrid search
 ```
 
 ### Step 4: Set OpenAI API Key
 
-Make sure `OPENAI_API_KEY` is set in your `config.php` or environment.
+Make sure `OPENAI_API_KEY` is set in your `config.php`:
+
+```php
+'OPENAI_API_KEY' => 'sk-your-key-here',
+```
+
+Or set it as an environment variable that PHP can access.
 
 ## Option 3: Use Alternative Library (If FAISS Also Fails)
 
