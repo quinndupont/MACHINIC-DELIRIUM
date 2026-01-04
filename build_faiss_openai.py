@@ -189,10 +189,19 @@ class OpenAIFAISSIndexBuilder:
         faiss.normalize_L2(self.embeddings)
         
         print("Building FAISS index...")
-        # Create FAISS index (Inner Product for normalized vectors = cosine similarity)
-        self.index = faiss.IndexFlatIP(self.embedding_dim)
-        self.index.add(self.embeddings)
+        # Create FAISS index with ID mapping
+        # Using IndexIDMap to wrap IndexFlatIP for proper ID mapping
+        base_index = faiss.IndexFlatIP(self.embedding_dim)
+        self.index = faiss.IndexIDMap(base_index)
+        
+        # Create IDs for each chunk (using sequential IDs matching chunk indices)
+        chunk_ids = np.arange(len(self.embeddings), dtype=np.int64)
+        
+        # Add embeddings with explicit IDs
+        self.index.add_with_ids(self.embeddings, chunk_ids)
+        
         print(f"Index built with {self.index.ntotal} vectors")
+        print(f"  Using IndexIDMap with IDs: {chunk_ids[0]} to {chunk_ids[-1]}")
         
     def save(self, index_path='faiss_index.bin', chunks_path='chunks.json'):
         """Save FAISS index and chunks to files."""

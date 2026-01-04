@@ -33,12 +33,13 @@ def main():
         # Ensure vector is normalized (should already be normalized from embed_query.py)
         faiss.normalize_L2(query_vector)
         
-        # Search
+        # Search - IndexIDMap returns the mapped IDs (chunk indices)
         similarities, indices = index.search(query_vector, k)
         
         # Return indices as JSON array
+        # indices[0] contains the chunk IDs from IndexIDMap, which map directly to chunks.json
         result = {
-            'indices': indices[0].tolist(),
+            'indices': indices[0].tolist(),  # These are the chunk IDs from IndexIDMap
             'similarities': similarities[0].tolist()
         }
         print(json.dumps(result))

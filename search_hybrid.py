@@ -82,6 +82,7 @@ def main():
         faiss.normalize_L2(query_vector)
         
         semantic_k = min(k * 2, len(chunks))  # Get more for hybrid
+        # IndexIDMap returns the mapped IDs (chunk indices) directly
         similarities, semantic_indices = index.search(query_vector, semantic_k)
         
         # Step 2: Keyword search

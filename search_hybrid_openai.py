@@ -88,6 +88,7 @@ def main():
         faiss.normalize_L2(query_embedding)
         
         # Search FAISS index
+        # IndexIDMap returns the mapped IDs (chunk indices) directly
         semantic_similarities, semantic_indices = index.search(query_embedding, k * 2)  # Get more for combining
         
         # Step 2: Keyword search
