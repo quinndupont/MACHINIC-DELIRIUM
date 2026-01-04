@@ -42,14 +42,9 @@ if (!is_python_available()) {
         // Test if Python can actually run and has required modules
         // Check for pure Python solution (only needs openai)
         @exec("$candidate -c 'import openai; print(\"OK\")' 2>&1", $output, $return_var);
-        if ($return_var === 0) {
-            echo "    ✅ OpenAI library available\n";
-        }
-        // Also check for FAISS if available
-        @exec("$candidate -c 'import faiss; print(\"FAISS OK\")' 2>&1", $output, $return_var);
         if ($return_var === 0 && implode('', $output) === 'OK') {
             $found_python = $candidate;
-            echo "  - Found working Python with required modules at: $candidate\n";
+            echo "  - Found working Python with OpenAI library at: $candidate\n";
             break;
         }
     }
@@ -71,9 +66,29 @@ if (!is_python_available()) {
         }
     }
     
-    echo "  - FAISS index: " . $config['FAISS_INDEX'] . " (" . (file_exists($config['FAISS_INDEX']) ? 'EXISTS' : 'MISSING') . ")\n";
+    // Check for pure Python solution files
+    echo "\nChecking files:\n";
+    echo "  - Embed script: " . $config['EMBED_SCRIPT'] . " (" . (file_exists($config['EMBED_SCRIPT']) ? 'EXISTS' : 'MISSING') . ")\n";
     echo "  - Chunks JSON: " . $config['CHUNKS_JSON'] . " (" . (file_exists($config['CHUNKS_JSON']) ? 'EXISTS' : 'MISSING') . ")\n";
-    echo "  - Hybrid script: " . $config['HYBRID_SCRIPT'] . " (" . (file_exists($config['HYBRID_SCRIPT']) ? 'EXISTS' : 'MISSING') . ")\n";
+    
+    if (isset($config['SEARCH_PURE_PYTHON'])) {
+        echo "  - Pure Python search: " . $config['SEARCH_PURE_PYTHON'] . " (" . (file_exists($config['SEARCH_PURE_PYTHON']) ? 'EXISTS' : 'MISSING') . ")\n";
+        echo "  - Embeddings JSON: " . $config['EMBEDDINGS_JSON'] . " (" . (file_exists($config['EMBEDDINGS_JSON']) ? 'EXISTS' : 'MISSING') . ")\n";
+    }
+    
+    if (isset($config['HYBRID_PURE_PYTHON'])) {
+        echo "  - Pure Python hybrid: " . $config['HYBRID_PURE_PYTHON'] . " (" . (file_exists($config['HYBRID_PURE_PYTHON']) ? 'EXISTS' : 'MISSING') . ")\n";
+    }
+    
+    // Check for FAISS solution files (optional)
+    echo "\nFAISS solution (optional):\n";
+    echo "  - FAISS index: " . $config['FAISS_INDEX'] . " (" . (file_exists($config['FAISS_INDEX']) ? 'EXISTS' : 'MISSING') . ")\n";
+    if (isset($config['SEARCH_SCRIPT'])) {
+        echo "  - FAISS search script: " . $config['SEARCH_SCRIPT'] . " (" . (file_exists($config['SEARCH_SCRIPT']) ? 'EXISTS' : 'MISSING') . ")\n";
+    }
+    if (isset($config['HYBRID_SCRIPT'])) {
+        echo "  - FAISS hybrid script: " . $config['HYBRID_SCRIPT'] . " (" . (file_exists($config['HYBRID_SCRIPT']) ? 'EXISTS' : 'MISSING') . ")\n";
+    }
     
     if ($found_python) {
         echo "\nSUGGESTION: Update config.php with:\n";

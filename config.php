@@ -54,7 +54,7 @@ $config = [
     'APP_PASSWORD' => getenv('APP_PASSWORD') ?: '',
     'FLASK_SECRET_KEY' => getenv('FLASK_SECRET_KEY') ?: 'dev-secret-key-change-in-production',
     'MARKDOWN_FILE' => __DIR__ . '/Anti-Oedipus.md',
-    'PYTHON_PATH' => '/venv/bin/python3', // Default system Python - update to your server's path (use: which python3)
+    'PYTHON_PATH' => '/home/public/venv/bin/python3', // Default system Python - update to your server's path (use: which python3)
     // OpenAI embeddings (works without PyTorch/sentence-transformers)
     'EMBED_SCRIPT' => __DIR__ . '/embed_query_openai.py', // Convert query to vector via OpenAI
     'SEARCH_SCRIPT' => __DIR__ . '/search_faiss.py', // Search FAISS index (if FAISS available)

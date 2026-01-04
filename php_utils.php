@@ -295,11 +295,20 @@ function is_python_available() {
         return false;
     }
     
-    // Check if FAISS index files exist and Python scripts are available
-    return file_exists($config['EMBED_SCRIPT']) &&
-           file_exists($config['SEARCH_SCRIPT']) &&
-           file_exists($config['FAISS_INDEX']) &&
-           file_exists($config['CHUNKS_JSON']);
+    // Check if required files exist - try pure Python solution first, then FAISS
+    $has_pure_python = isset($config['SEARCH_PURE_PYTHON']) && 
+                       isset($config['EMBEDDINGS_JSON']) &&
+                       file_exists($config['EMBED_SCRIPT']) &&
+                       file_exists($config['SEARCH_PURE_PYTHON']) &&
+                       file_exists($config['EMBEDDINGS_JSON']) &&
+                       file_exists($config['CHUNKS_JSON']);
+    
+    $has_faiss = file_exists($config['EMBED_SCRIPT']) &&
+                 file_exists($config['SEARCH_SCRIPT']) &&
+                 file_exists($config['FAISS_INDEX']) &&
+                 file_exists($config['CHUNKS_JSON']);
+    
+    return $has_pure_python || $has_faiss;
 }
 
 function call_python_rag($query, $k = 20, $use_hybrid = true) {
