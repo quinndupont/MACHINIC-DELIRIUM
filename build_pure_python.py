@@ -204,8 +204,15 @@ class PurePythonIndexBuilder:
         print(f"Found {len(chapters)} chapters")
         
         print("Creating chunks...")
-        self.chunks, self.chunk_metadata = self.create_chunks(text, chapters)
-        print(f"Created {len(self.chunks)} chunks")
+        total_chunks = 0
+        for i, chapter in enumerate(chapters):
+            print(f"  Processing chapter {chapter['num']}: {chapter['title'][:50]}...")
+            chapter_chunks, chapter_metadata = self._create_chunks_for_chapter(text, chapter, chapters)
+            self.chunks.extend(chapter_chunks)
+            self.chunk_metadata.extend(chapter_metadata)
+            total_chunks += len(chapter_chunks)
+            print(f"    Created {len(chapter_chunks)} chunks (total: {total_chunks})")
+        print(f"Created {len(self.chunks)} chunks total")
         
         print("Generating embeddings...")
         self.embeddings = self.embed_chunks(self.chunks)
