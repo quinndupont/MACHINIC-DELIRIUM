@@ -168,7 +168,7 @@ Then modify `search_faiss.py` to use Annoy instead (though this is less optimal)
 
 ## Quick Start: No Sudo Access
 
-**Easiest path without sudo:**
+**For Linux servers:**
 
 1. Install Miniconda:
 ```bash
@@ -187,6 +187,27 @@ conda create -n anti-oedipus python=3.11 -y
 conda activate anti-oedipus
 conda install -c conda-forge numpy=1.26.4 faiss-cpu -y
 pip install torch sentence-transformers
+```
+
+**For FreeBSD servers:**
+
+FreeBSD doesn't support the standard Linux Miniconda installer. Try:
+
+1. Use system Python with pip:
+```bash
+bash install_freebsd.sh
+```
+
+2. Or ask your hosting provider to install via pkg:
+```bash
+pkg install py311-numpy py311-scipy openblas
+```
+
+3. Then install Python packages:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install torch sentence-transformers faiss-cpu
 ```
 
 ## Verify Installation
