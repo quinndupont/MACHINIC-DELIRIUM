@@ -44,13 +44,15 @@ def main():
         print(json.dumps(result))
         
     except FileNotFoundError:
-        print(json.dumps({'error': f'Index file not found: {index_path}'}), file=sys.stderr)
+        print(json.dumps({'error': f'Index file not found: {index_path}'}))
         sys.exit(1)
     except json.JSONDecodeError as e:
-        print(json.dumps({'error': f'Invalid JSON: {str(e)}'}), file=sys.stderr)
+        print(json.dumps({'error': f'Invalid JSON: {str(e)}'}))
         sys.exit(1)
     except Exception as e:
-        print(json.dumps({'error': str(e)}), file=sys.stderr)
+        print(json.dumps({'error': str(e)}))
+        import traceback
+        traceback.print_exc(file=sys.stderr)  # Debug info to stderr
         sys.exit(1)
 
 if __name__ == '__main__':

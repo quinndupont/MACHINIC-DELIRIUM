@@ -33,7 +33,9 @@ def main():
         print(json.dumps(embedding.tolist()))
         
     except Exception as e:
-        print(json.dumps({'error': str(e)}), file=sys.stderr)
+        print(json.dumps({'error': str(e)}))
+        import traceback
+        traceback.print_exc(file=sys.stderr)  # Debug info to stderr
         sys.exit(1)
 
 if __name__ == '__main__':

@@ -155,12 +155,14 @@ def main():
         print(json.dumps(result))
         
     except FileNotFoundError as e:
-        print(json.dumps({'error': f'File not found: {str(e)}'}), file=sys.stderr)
+        print(json.dumps({'error': f'File not found: {str(e)}'}))
         sys.exit(1)
     except Exception as e:
-        print(json.dumps({'error': str(e)}), file=sys.stderr)
+        error_msg = json.dumps({'error': str(e)})
+        print(error_msg)
+        # Also log to stderr for debugging, but don't let it interfere with JSON output
         import traceback
-        traceback.print_exc()
+        traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
 if __name__ == '__main__':
