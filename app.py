@@ -6,7 +6,7 @@ try:
 except ImportError:
     print("ERROR: python-dotenv is not installed. Please run: pip install -r requirements.txt")
     raise
-from rag import RAGSystem
+from faiss_api import FAISSRAGSystem
 from openai import OpenAI
 import math
 from markupsafe import Markup
@@ -50,10 +50,20 @@ def get_api_key():
     return api_key
 
 def get_rag_system():
-    """Get or create RAG system instance for the current API key."""
+    """Get or create FAISS RAG system instance for the current API key."""
     api_key = get_api_key()
     if api_key not in rag_system_cache:
-        rag_system_cache[api_key] = RAGSystem(markdown_file, api_key)
+        index_path = 'faiss_index.bin'
+        metadata_path = 'faiss_metadata.pkl'
+        if not os.path.exists(index_path) or not os.path.exists(metadata_path):
+            raise FileNotFoundError(
+                f"FAISS index files not found. Please run: python build_faiss_index.py {markdown_file}"
+            )
+        rag_system_cache[api_key] = FAISSRAGSystem(
+            index_path=index_path,
+            metadata_path=metadata_path,
+            api_key=api_key
+        )
     return rag_system_cache[api_key]
 
 def get_openai_client():
@@ -460,9 +470,9 @@ def define():
         term = data.get('term')
         context = data.get('context') # Surrounding text
         
-        # Use RAG to retrieve relevant chunks for the term
+        # Use FAISS RAG to retrieve relevant chunks for the term
         query_text = f"{term} {context}" if context else term
-        rag_results = get_rag_system().query(query_text, k=6)
+        rag_results = get_rag_system().search(query_text, k=6)
         
         # Build context from retrieved chunks with chapter information
         context_parts = []
@@ -515,8 +525,8 @@ def chat():
         if not message:
             return jsonify({"error": "Message is required"}), 400
         
-        # Use RAG to retrieve relevant chunks
-        rag_results = get_rag_system().query(message, k=8)
+        # Use FAISS RAG to retrieve relevant chunks
+        rag_results = get_rag_system().search(message, k=8)
         
         # Build context from retrieved chunks with chapter information
         context_parts = []

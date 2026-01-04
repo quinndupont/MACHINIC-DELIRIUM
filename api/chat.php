@@ -42,9 +42,9 @@ function api_chat($data) {
     
     // Check if Python RAG is available
     if (is_python_available()) {
-        $rag_results = call_python_rag($message, 8);
+        $rag_results = call_python_rag($message, 20); // Increased from 8 to 20 for better coverage
     } else {
-        $rag_results = simple_text_search($message, 8);
+        $rag_results = simple_text_search($message, 20);
     }
     
     // Log if no results found

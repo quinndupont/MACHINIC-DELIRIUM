@@ -55,7 +55,11 @@ $config = [
     'FLASK_SECRET_KEY' => getenv('FLASK_SECRET_KEY') ?: 'dev-secret-key-change-in-production',
     'MARKDOWN_FILE' => __DIR__ . '/Anti-Oedipus.md',
     'PYTHON_PATH' => '/home/public/venv/bin/python3', // Try: which python3 on server
-    'RAG_SCRIPT' => __DIR__ . '/rag_api.py'
+    'EMBED_SCRIPT' => __DIR__ . '/embed_query.py', // Convert query to vector
+    'SEARCH_SCRIPT' => __DIR__ . '/search_faiss.py', // Search FAISS index
+    'HYBRID_SCRIPT' => __DIR__ . '/search_hybrid.py', // Hybrid semantic + keyword search
+    'FAISS_INDEX' => __DIR__ . '/faiss_index.bin',
+    'CHUNKS_JSON' => __DIR__ . '/chunks.json' // Text chunks and metadata
 ];
 
 // Set session config

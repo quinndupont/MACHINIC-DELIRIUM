@@ -40,7 +40,7 @@ function api_define($data) {
     
     // Check if Python RAG is available
     if (is_python_available()) {
-        $rag_results = call_python_rag($term . ' ' . $context, 6);
+        $rag_results = call_python_rag($term . ' ' . $context, 15); // Increased from 6 to 15 for better coverage
     } else {
         // Fallback to simple text search
         $rag_results = simple_text_search($term . ' ' . $context, 6);

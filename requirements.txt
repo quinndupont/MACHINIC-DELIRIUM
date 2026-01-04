@@ -4,4 +4,8 @@ openai
 tiktoken
 markdown
 gunicorn
+faiss-cpu
+numpy
+sentence-transformers
+torch
 

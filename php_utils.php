@@ -289,54 +289,133 @@ function is_python_available() {
     $output = [];
     $return_var = 0;
     @exec("{$python_path} --version 2>&1", $output, $return_var);
-    return $return_var === 0 && file_exists($config['RAG_SCRIPT']);
+    // Check if FAISS index files exist and Python scripts are available
+    return $return_var === 0 && 
+           file_exists($config['EMBED_SCRIPT']) &&
+           file_exists($config['SEARCH_SCRIPT']) &&
+           file_exists($config['FAISS_INDEX']) &&
+           file_exists($config['CHUNKS_JSON']);
 }
 
-function call_python_rag($query, $k = 5) {
+function call_python_rag($query, $k = 20, $use_hybrid = true) {
     global $config;
     $python_path = $config['PYTHON_PATH'];
-    $script = $config['RAG_SCRIPT'];
-    $api_key = get_api_key();
+    $index_path = $config['FAISS_INDEX'];
+    $chunks_path = $config['CHUNKS_JSON'];
     
-    $query_escaped = escapeshellarg($query);
-    $k_escaped = escapeshellarg($k);
-    $api_key_escaped = escapeshellarg($api_key);
-    
-    $command = "{$python_path} {$script} query {$query_escaped} {$k_escaped} {$api_key_escaped} 2>&1";
-    $output = shell_exec($command);
-    
-    if ($output === null || empty(trim($output))) {
-        error_log("Python RAG returned null/empty output. Command: " . $command);
-        // Fallback to simple search
+    try {
+        // Use hybrid search if available, otherwise fall back to semantic-only
+        if ($use_hybrid && isset($config['HYBRID_SCRIPT']) && file_exists($config['HYBRID_SCRIPT'])) {
+            // Hybrid search: combines semantic + keyword matching
+            $hybrid_script = $config['HYBRID_SCRIPT'];
+            $query_escaped = escapeshellarg($query);
+            $index_path_escaped = escapeshellarg($index_path);
+            $chunks_path_escaped = escapeshellarg($chunks_path);
+            $k_escaped = escapeshellarg($k);
+            
+            $search_command = "{$python_path} {$hybrid_script} {$index_path_escaped} {$chunks_path_escaped} {$query_escaped} {$k_escaped} 2>&1";
+            $search_output = shell_exec($search_command);
+            
+            if ($search_output === null || empty(trim($search_output))) {
+                error_log("Hybrid search returned null/empty output. Falling back to semantic search.");
+                $use_hybrid = false;
+            } else {
+                $search_result = json_decode($search_output, true);
+                if (json_last_error() === JSON_ERROR_NONE && isset($search_result['indices']) && is_array($search_result['indices'])) {
+                    // Hybrid search succeeded
+                    $indices = $search_result['indices'];
+                    $similarities = $search_result['similarities'] ?? [];
+                } else {
+                    error_log("Hybrid search error: " . ($search_result['error'] ?? json_last_error_msg()) . ". Falling back to semantic search.");
+                    $use_hybrid = false;
+                }
+            }
+        }
+        
+        // Fall back to semantic-only search if hybrid failed or not requested
+        if (!$use_hybrid) {
+            $embed_script = $config['EMBED_SCRIPT'];
+            $search_script = $config['SEARCH_SCRIPT'];
+            
+            // Step 1: Convert query to embedding vector
+            $query_escaped = escapeshellarg($query);
+            $embed_command = "{$python_path} {$embed_script} {$query_escaped} 2>&1";
+            $embed_output = shell_exec($embed_command);
+            
+            if ($embed_output === null || empty(trim($embed_output))) {
+                error_log("Embed query returned null/empty output. Command: " . $embed_command);
+                return simple_text_search($query, $k);
+            }
+            
+            $query_vector = json_decode($embed_output, true);
+            if (json_last_error() !== JSON_ERROR_NONE || isset($query_vector['error'])) {
+                error_log("Embed query error: " . ($query_vector['error'] ?? json_last_error_msg()));
+                return simple_text_search($query, $k);
+            }
+            
+            // Step 2: Search FAISS index
+            $vector_json = escapeshellarg(json_encode($query_vector));
+            $index_path_escaped = escapeshellarg($index_path);
+            $k_escaped = escapeshellarg($k);
+            $search_command = "{$python_path} {$search_script} {$index_path_escaped} {$vector_json} {$k_escaped} 2>&1";
+            $search_output = shell_exec($search_command);
+            
+            if ($search_output === null || empty(trim($search_output))) {
+                error_log("Search FAISS returned null/empty output. Command: " . $search_command);
+                return simple_text_search($query, $k);
+            }
+            
+            $search_result = json_decode($search_output, true);
+            if (json_last_error() !== JSON_ERROR_NONE || isset($search_result['error'])) {
+                error_log("Search FAISS error: " . ($search_result['error'] ?? json_last_error_msg()));
+                return simple_text_search($query, $k);
+            }
+            
+            if (!isset($search_result['indices']) || !is_array($search_result['indices'])) {
+                error_log("Search FAISS returned invalid result structure");
+                return simple_text_search($query, $k);
+            }
+            
+            $indices = $search_result['indices'];
+            $similarities = $search_result['similarities'] ?? [];
+        }
+        
+        // Step 3: Load chunks from JSON and return results
+        if (!file_exists($chunks_path)) {
+            error_log("Chunks JSON file not found: " . $chunks_path);
+            return simple_text_search($query, $k);
+        }
+        
+        $chunks_data = json_decode(file_get_contents($chunks_path), true);
+        if ($chunks_data === null || !isset($chunks_data['chunks']) || !isset($chunks_data['metadata'])) {
+            error_log("Failed to load or parse chunks JSON");
+            return simple_text_search($query, $k);
+        }
+        
+        $chunks = $chunks_data['chunks'];
+        $metadata = $chunks_data['metadata'];
+        
+        // Build results array
+        $results = [];
+        foreach ($indices as $idx => $chunk_idx) {
+            if ($chunk_idx >= 0 && $chunk_idx < count($chunks)) {
+                $chunk_meta = $metadata[$chunk_idx] ?? [];
+                $results[] = [
+                    'text' => $chunks[$chunk_idx],
+                    'chapter_num' => $chunk_meta['chapter_num'] ?? 0,
+                    'chapter_title' => $chunk_meta['chapter_title'] ?? 'Unknown',
+                    'subsection' => $chunk_meta['subsection'] ?? '',
+                    'score' => $similarities[$idx] ?? 0.0
+                ];
+            }
+        }
+        
+        return $results;
+        
+    } catch (Exception $e) {
+        error_log("Python RAG error: " . $e->getMessage());
         return simple_text_search($query, $k);
     }
-    
-    $result = json_decode($output, true);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        error_log("Python RAG JSON decode error: " . json_last_error_msg() . ". Output: " . substr($output, 0, 200));
-        // Fallback to simple search
-        return simple_text_search($query, $k);
-    }
-    
-    // Check if result has error
-    if (isset($result['error'])) {
-        error_log("Python RAG error: " . $result['error']);
-        return simple_text_search($query, $k);
-    }
-    
-    // Ensure result is an array
-    if (!is_array($result)) {
-        error_log("Python RAG returned non-array result");
-        return simple_text_search($query, $k);
-    }
-    
-    // Validate result structure
-    if (empty($result)) {
-        error_log("Python RAG returned empty results for query: " . $query);
-        return simple_text_search($query, $k);
-    }
-    
-    return $result;
 }
 
 function simple_text_search($query, $k = 5) {

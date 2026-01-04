@@ -16,7 +16,7 @@ Upload all project files to your NearlyFreeSpeech server, excluding:
 - `.env` file (create this on the server)
 - `venv/` directory (create this on the server)
 - `__pycache__/` directories
-- `*.pkl` cache files (will be regenerated)
+- `faiss_index.bin` and `faiss_metadata.pkl` (build these on the server, see Step 4)
 
 ### 2. Create Virtual Environment
 
@@ -51,7 +51,28 @@ FLASK_ENV=production
 - Use a strong, random `FLASK_SECRET_KEY` (you can generate one with: `python -c "import secrets; print(secrets.token_hex(32))"`)
 - Keep your `.env` file permissions restricted: `chmod 600 .env`
 
-### 4. Set File Permissions
+### 4. Build FAISS Index
+
+Before running the application, you must build the FAISS index for the RAG system:
+
+```bash
+# Activate venv if not already active
+source venv/bin/activate
+
+# Build FAISS index (requires OPENAI_API_KEY in .env)
+python build_faiss_index.py Anti-Oedipus.md
+
+# Or with explicit API key:
+python build_faiss_index.py Anti-Oedipus.md your-api-key-here
+```
+
+This creates:
+- `faiss_index.bin`: Precomputed FAISS vector index (binary file, ~5-6 MB)
+- `faiss_metadata.pkl`: Chunks and metadata (pickle file, ~8 MB)
+
+**Note**: This step only needs to be run once (or when the markdown file changes). It may take a few minutes to generate embeddings.
+
+### 5. Set File Permissions
 
 ```bash
 # Make WSGI file executable
@@ -178,6 +199,7 @@ python app.wsgi
 ### Monitoring
 
 - Monitor error logs regularly
-- Check disk space (embeddings cache can be large)
+- Check disk space (FAISS index files are ~13-14 MB total)
 - Monitor API usage if using server API key
+- Rebuild FAISS index if `Anti-Oedipus.md` is updated
 

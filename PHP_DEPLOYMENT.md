@@ -26,8 +26,11 @@ Upload all project files to your NearlyFreeSpeech server, including:
 - `login.php` (login page)
 - `config.php` (configuration - see Step 3)
 - `php_utils.php` (utility functions)
-- `rag_api.py` (Python RAG script, if using Python)
-- `rag.py` (RAG system, if using Python)
+- `build_faiss_local.py` (Script to build FAISS index with local embeddings)
+- `embed_query.py` (Script to convert query to embedding vector)
+- `search_faiss.py` (Script to search FAISS index)
+- `faiss_index.bin` (Precomputed FAISS index - build with build_faiss_local.py)
+- `chunks.json` (Text chunks and metadata - build with build_faiss_local.py)
 - `templates/` directory
 - `static/` directory
 - `Anti-Oedipus.md` (markdown file)
@@ -37,7 +40,9 @@ Upload all project files to your NearlyFreeSpeech server, including:
 - `.env` file (create `config.php` instead)
 - `venv/` directory (create on server if using Python)
 - `__pycache__/` directories
-- `*.pkl` cache files (will be regenerated)
+- Old RAG files (no longer needed): `rag.py`, `rag_api.py`, `faiss_api.py`, `embeddings_cache.pkl`, `faiss_metadata.pkl`
+
+**Note**: You can either upload `faiss_index.bin` and `chunks.json` after building them locally, or build them on the server using `build_faiss_local.py`.
 
 ## Step 3: Configure
 
@@ -52,7 +57,10 @@ $config = [
     'FLASK_SECRET_KEY' => 'generate-a-random-secret-key-here',
     'MARKDOWN_FILE' => __DIR__ . '/Anti-Oedipus.md',
     'PYTHON_PATH' => '/usr/bin/python3', // Update after checking with 'which python3'
-    'RAG_SCRIPT' => __DIR__ . '/rag_api.py'
+    'EMBED_SCRIPT' => __DIR__ . '/embed_query.py', // Convert query to vector
+    'SEARCH_SCRIPT' => __DIR__ . '/search_faiss.py', // Search FAISS index
+    'FAISS_INDEX' => __DIR__ . '/faiss_index.bin',
+    'CHUNKS_JSON' => __DIR__ . '/chunks.json' // Text chunks and metadata
 ];
 ```
 
@@ -71,14 +79,14 @@ If NearlyFreeSpeech supports `.htaccess` environment variables, you can set them
 # Make PHP files readable
 chmod 644 *.php
 
-# Make Python script executable (if using Python)
-chmod 755 rag_api.py
+# Make Python scripts executable (if using Python)
+chmod 755 build_faiss_local.py embed_query.py search_faiss.py
 
 # Restrict config.php permissions
 chmod 600 config.php
 ```
 
-## Step 5: Install Python Dependencies (If Using Python)
+## Step 5: Install Python Dependencies and Build FAISS Index (If Using Python)
 
 If Python is available and you want to use RAG:
 
@@ -93,6 +101,28 @@ Then update `config.php` to use the venv Python:
 ```php
 'PYTHON_PATH' => __DIR__ . '/venv/bin/python',
 ```
+
+### Build FAISS Index
+
+**Important**: You must build the FAISS index before the RAG system will work:
+
+```bash
+# Activate venv if not already active
+source venv/bin/activate
+
+# Build FAISS index using local embeddings (no API key needed)
+python build_faiss_local.py Anti-Oedipus.md
+```
+
+This creates:
+- `faiss_index.bin`: Precomputed FAISS vector index (binary file, ~2.3 MB)
+- `chunks.json`: Text chunks and metadata (JSON file, ~1.3 MB)
+
+**Note**: 
+- This step only needs to be run once (or when the markdown file changes)
+- Uses local embedding model (no API calls needed)
+- Takes about 10-15 seconds to build
+- Creates ~1500 overlapping chunks of ~800 characters each
 
 ## Step 6: Apache Configuration
 
@@ -150,16 +180,41 @@ php_value session.save_path "/path/to/your/project/sessions"
 
 ### RAG Script Not Working
 
-1. Test Python script directly:
+1. **Check FAISS index files exist**:
    ```bash
-   python3 rag_api.py query "test query" 5 "your-api-key"
+   ls -lh faiss_index.bin chunks.json
+   ```
+   If missing, build the index (see Step 5).
+
+2. **Test embedding script**:
+   ```bash
+   python3 embed_query.py "test query"
+   ```
+   Should output a JSON array of 384 numbers.
+
+3. **Test search script**:
+   ```bash
+   QUERY_VEC=$(python3 embed_query.py "test query")
+   python3 search_faiss.py faiss_index.bin "$QUERY_VEC" 5
+   ```
+   Should output JSON with indices and similarities.
+
+4. Check file permissions on scripts (should be 755):
+   ```bash
+   chmod 755 embed_query.py search_faiss.py
    ```
 
-2. Check file permissions on `rag_api.py` (should be 755)
+5. Check that FAISS index files are readable:
+   ```bash
+   chmod 644 faiss_index.bin chunks.json
+   ```
 
-3. Check that `rag.py` and dependencies are accessible
+6. Check PHP error logs for shell_exec errors
 
-4. Check PHP error logs for shell_exec errors
+7. Verify dependencies are installed:
+   ```bash
+   python3 -c "import faiss; import sentence_transformers; print('Dependencies OK')"
+   ```
 
 ## Differences from Flask Version
 

@@ -20,6 +20,11 @@ ENV/
 *.pkl
 *.cache
 embeddings_cache.pkl
+faiss_metadata.pkl
+
+# Built FAISS index files (build on server)
+faiss_index.bin
+chunks.json
 
 # IDE
 .vscode/
