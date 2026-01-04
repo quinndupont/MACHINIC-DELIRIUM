@@ -69,10 +69,10 @@ rm -rf venv/lib/python3.11/site-packages/numpy* 2>/dev/null || true
 pip cache purge
 
 echo "Trying to install NumPy from conda-forge..."
-# Try conda-forge index
-if pip install --index-url https://pypi.anaconda.org/conda-forge/simple --no-cache-dir numpy==1.26.4 2>/dev/null; then
+# Try conda-forge index first (may have pre-built wheels with BLAS)
+if pip install --index-url https://pypi.anaconda.org/conda-forge/simple --no-cache-dir numpy==1.26.4; then
     echo "✅ Installed NumPy from conda-forge"
-elif pip install --no-cache-dir "numpy<2.0.0" 2>/dev/null; then
+elif pip install --no-cache-dir "numpy<2.0.0"; then
     echo "✅ Installed compatible NumPy version"
 else
     echo ""
@@ -93,11 +93,31 @@ else
 fi
 
 echo "Verifying NumPy..."
-if ! python3 -c "import numpy; print('✅ NumPy:', numpy.__version__)" 2>/dev/null; then
+NUMPY_ERROR=$(python3 -c "import numpy; print('✅ NumPy:', numpy.__version__)" 2>&1)
+if [ $? -ne 0 ]; then
     echo ""
-    echo "❌ NumPy installation failed!"
-    echo "You need conda or system BLAS libraries."
+    echo "❌ NumPy cannot be imported!"
+    echo ""
+    echo "Error details:"
+    echo "$NUMPY_ERROR" | head -10
+    echo ""
+    echo "NumPy was installed but cannot import (likely missing BLAS libraries)."
+    echo ""
+    echo "SOLUTION: Install Miniconda (no sudo required):"
+    echo "  cd ~"
+    echo "  wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+    echo "  bash Miniconda3-latest-Linux-x86_64.sh -b -p ~/miniconda3"
+    echo "  ~/miniconda3/bin/conda init bash"
+    echo "  source ~/.bashrc"
+    echo "  conda create -n anti-oedipus python=3.11 -y"
+    echo "  conda activate anti-oedipus"
+    echo "  conda install -c conda-forge numpy=1.26.4 faiss-cpu -y"
+    echo "  pip install torch sentence-transformers"
+    echo ""
+    echo "Then update config.php: 'PYTHON_PATH' => '/home/public/miniconda3/envs/anti-oedipus/bin/python3',"
     exit 1
+else
+    echo "$NUMPY_ERROR"
 fi
 
 echo ""
