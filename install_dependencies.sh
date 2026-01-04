@@ -1,6 +1,7 @@
 #!/bin/bash
 # Installation script for production server
 # Handles FAISS installation issues
+# NOTE: If NumPy is broken, use fix_numpy_and_install.sh instead
 
 set -e
 
@@ -18,8 +19,14 @@ source venv/bin/activate
 echo "Upgrading pip, setuptools, wheel..."
 pip install --upgrade pip setuptools wheel
 
-echo "Installing numpy (compatible version)..."
-pip install "numpy<2.0.0"
+echo "Checking NumPy..."
+if ! python3 -c "import numpy" 2>/dev/null; then
+    echo "NumPy not installed or broken. Installing..."
+    pip install --no-cache-dir --only-binary :all: numpy==1.26.4 || pip install --no-cache-dir numpy==1.26.4
+else
+    echo "NumPy already installed, checking version..."
+    python3 -c "import numpy; print('NumPy version:', numpy.__version__)"
+fi
 
 echo "Installing torch..."
 pip install torch --index-url https://download.pytorch.org/whl/cpu
@@ -33,7 +40,13 @@ if ! pip install faiss-cpu --no-build-isolation 2>&1 | tee /tmp/faiss_install.lo
     echo "First attempt failed, trying alternative method..."
     echo "Installing faiss-cpu==1.7.4 (older, more compatible version)..."
     pip install faiss-cpu==1.7.4 --no-build-isolation || {
-        echo "ERROR: FAISS installation failed. See INSTALL_FAISS.md for troubleshooting."
+        echo ""
+        echo "ERROR: FAISS installation failed!"
+        echo ""
+        echo "Your NumPy may be broken. Try running:"
+        echo "  bash fix_numpy_and_install.sh"
+        echo ""
+        echo "Or see INSTALL_FAISS.md for troubleshooting."
         exit 1
     }
 fi
