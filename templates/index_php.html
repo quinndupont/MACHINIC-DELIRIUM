@@ -32,6 +32,9 @@
                 <button id="search-toggle" aria-label="Search">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </button>
+                <button id="annotation-toggle-toolbar" aria-label="Toggle Annotations">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                </button>
                 <button id="theme-toggle" aria-label="Toggle Dark Mode">
                     <svg class="sun" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                     <svg class="moon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
@@ -84,6 +87,52 @@
                 <?php echo $toc; ?>
             </nav>
         </aside>
+
+        <!-- Annotation Toolbar -->
+        <div id="annotation-toolbar" class="annotation-toolbar hidden">
+            <button id="annotation-highlight" class="annotation-btn active" title="Highlight Text">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M3 8h18M3 12h18M3 16h18"></path></svg>
+            </button>
+            <button id="annotation-draw" class="annotation-btn" title="Draw Mark">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+            </button>
+            <button id="annotation-view" class="annotation-btn" title="View Annotations">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path></svg>
+            </button>
+            <button id="annotation-clear" class="annotation-btn" title="Clear All">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+            </button>
+            <div class="annotation-separator"></div>
+            <input type="color" id="annotation-color" value="#ffff00" title="Highlight Color">
+            <button id="annotation-toggle" class="annotation-btn annotation-toggle-btn" title="Toggle Annotations">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+            </button>
+        </div>
+
+        <!-- Annotation Note Popup -->
+        <div id="annotation-note-popup" class="annotation-note-popup hidden">
+            <div class="annotation-note-header">
+                <span>Add Note</span>
+                <button id="annotation-note-close">×</button>
+            </div>
+            <textarea id="annotation-note-text" placeholder="Add a note to this highlight..."></textarea>
+            <div class="annotation-note-actions">
+                <button id="annotation-note-save">Save</button>
+                <button id="annotation-note-delete">Delete</button>
+            </div>
+        </div>
+
+        <!-- Annotation Sidebar -->
+        <div id="annotation-sidebar" class="annotation-sidebar hidden">
+            <div class="annotation-sidebar-header">
+                <h3>Annotations</h3>
+                <button id="annotation-sidebar-close">×</button>
+            </div>
+            <div id="annotation-list" class="annotation-list"></div>
+        </div>
+
+        <!-- SVG Overlay for Drawing -->
+        <svg id="annotation-svg-overlay" class="annotation-svg-overlay"></svg>
 
         <!-- Main Content -->
         <main id="content" class="content">
@@ -166,6 +215,7 @@
 
     </div>
     <script src="static/script.js"></script>
+    <script src="static/annotations.js"></script>
 </body>
 </html>
 

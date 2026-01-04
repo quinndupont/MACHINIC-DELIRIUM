@@ -688,7 +688,7 @@ function call_openai_chat($api_key, $system_prompt, $user_prompt, $max_tokens = 
     
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    // curl_close() is deprecated in PHP 8.5+ - handle closes automatically
     
     if ($http_code !== 200) {
         throw new Exception("OpenAI API error: " . $response);
@@ -749,7 +749,7 @@ function call_openai_chat_stream($api_key, $messages, $max_tokens = 2000, $tempe
     
     $result = curl_exec($ch);
     $error = curl_error($ch);
-    curl_close($ch);
+    // curl_close() is deprecated in PHP 8.5+ - handle closes automatically
     
     if ($result === false && $error) {
         echo "Error: " . $error;

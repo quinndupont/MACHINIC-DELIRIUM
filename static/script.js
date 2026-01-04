@@ -72,7 +72,10 @@ document.addEventListener('DOMContentLoaded', () => {
     applyFonts();
 
     // Event Listeners: Theme
-    themeToggle.addEventListener('click', () => {
+    themeToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        console.log('Theme toggle clicked');
         state.theme = state.theme === 'light' ? 'dark' : 'light';
         localStorage.setItem('theme', state.theme);
         applyTheme();
@@ -80,7 +83,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event Listeners: TOC Sidebar
     if (tocToggle && tocSidebar) {
-        tocToggle.addEventListener('click', () => {
+        tocToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            console.log('TOC toggle clicked');
             tocSidebar.classList.toggle('open');
         });
         
@@ -184,6 +190,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Test if button is clickable
         chatToggle.style.cursor = 'pointer';
         chatToggle.style.pointerEvents = 'auto';
+        chatToggle.style.position = 'relative';
+        chatToggle.style.zIndex = '102';
         
         // Add multiple event listeners to debug
         chatToggle.onclick = function(e) {
@@ -481,10 +489,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         try {
-            // Use relative path for PHP version compatibility
-            const apiPath = window.location.pathname.includes('index.php') 
-                ? 'api/search.php' 
-                : '/api/search';
+            // Use relative path - works with both index.php and direct access
+            const apiPath = 'api/search.php';
             const response = await fetch(apiPath, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -755,10 +761,8 @@ document.addEventListener('DOMContentLoaded', () => {
         chatMessages.appendChild(systemDiv);
         
         try {
-            // Use relative path for PHP version compatibility
-            const chatPath = window.location.pathname.includes('index.php') 
-                ? 'api/chat.php' 
-                : '/api/chat';
+            // Use relative path - works with both index.php and direct access
+            const chatPath = 'api/chat.php';
             const response = await fetch(chatPath, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -827,10 +831,8 @@ document.addEventListener('DOMContentLoaded', () => {
         chatMessages.scrollTop = chatMessages.scrollHeight;
         
         try {
-            // Use relative path for PHP version compatibility
-            const definePath = window.location.pathname.includes('index.php') 
-                ? 'api/define.php' 
-                : '/api/define';
+            // Use relative path - works with both index.php and direct access
+            const definePath = 'api/define.php';
             const res = await fetch(definePath, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -850,4 +852,6 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingDiv.textContent = "Error fetching definition.";
         }
     });
+
+    // Annotation System - moved to annotations.js (no Fabric.js dependency)
 });
