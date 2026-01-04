@@ -219,7 +219,7 @@ class PurePythonIndexBuilder:
         total_chunks = 0
         for i, chapter in enumerate(chapters):
             print(f"  Processing chapter {chapter['num']}: {chapter['title'][:50]}...")
-            chapter_chunks, chapter_metadata = self._create_chunks_for_chapter(text, chapter, chapters)
+            chapter_chunks, chapter_metadata = self._create_chunks_for_chapter(text, chapter)
             self.chunks.extend(chapter_chunks)
             self.chunk_metadata.extend(chapter_metadata)
             total_chunks += len(chapter_chunks)
