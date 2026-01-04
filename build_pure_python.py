@@ -115,57 +115,69 @@ class PurePythonIndexBuilder:
         
         return chapters
     
-    def create_chunks(self, text, chapters):
-        """Create overlapping chunks from text."""
+    def _create_chunks_for_chapter(self, text, chapter):
+        """Create overlapping chunks for a single chapter."""
         chunks = []
         metadata = []
         
         lines = text.split('\n')
+        chapter_text_lines = lines[chapter['start_line']:chapter['end_line']]
+        chapter_text = '\n'.join(chapter_text_lines)
         
-        for chapter in chapters:
-            chapter_text_lines = lines[chapter['start_line']:chapter['end_line']]
-            chapter_text = '\n'.join(chapter_text_lines)
+        if not chapter_text.strip():
+            return chunks, metadata
+        
+        # Find which subsection we're in
+        current_subsection = None
+        
+        # Split into chunks
+        pos = 0
+        max_iterations = (len(chapter_text) // (self.chunk_size - self.chunk_overlap)) * 2  # Safety limit
+        iterations = 0
+        
+        while pos < len(chapter_text) and iterations < max_iterations:
+            iterations += 1
+            chunk_end = min(pos + self.chunk_size, len(chapter_text))
             
-            # Find which subsection we're in
-            current_subsection = None
-            subsection_start = 0
+            # Try to break at sentence/paragraph boundary
+            if chunk_end < len(chapter_text):
+                # Look for paragraph break
+                for break_char in ['\n\n', '\n', '. ', '! ', '? ']:
+                    break_pos = chapter_text.rfind(break_char, pos, chunk_end)
+                    if break_pos != -1:
+                        chunk_end = break_pos + len(break_char)
+                        break
             
-            # Split into chunks
-            pos = 0
-            while pos < len(chapter_text):
-                chunk_end = min(pos + self.chunk_size, len(chapter_text))
+            chunk_text = chapter_text[pos:chunk_end].strip()
+            
+            if len(chunk_text) > 50:  # Minimum chunk size
+                # Determine subsection
+                chunk_start_global = chapter['start_line'] + chapter_text[:pos].count('\n')
+                for sub in reversed(chapter['subsections']):
+                    if sub['start_line'] <= chunk_start_global:
+                        current_subsection = sub['title']
+                        break
                 
-                # Try to break at sentence/paragraph boundary
-                if chunk_end < len(chapter_text):
-                    # Look for paragraph break
-                    for break_char in ['\n\n', '\n', '. ', '! ', '? ']:
-                        break_pos = chapter_text.rfind(break_char, pos, chunk_end)
-                        if break_pos != -1:
-                            chunk_end = break_pos + len(break_char)
-                            break
-                
-                chunk_text = chapter_text[pos:chunk_end].strip()
-                
-                if len(chunk_text) > 50:  # Minimum chunk size
-                    # Determine subsection
-                    chunk_start_global = chapter['start_line'] + chapter_text[:pos].count('\n')
-                    for sub in chapter['subsections']:
-                        if sub['start_line'] <= chunk_start_global:
-                            current_subsection = sub['title']
-                    
-                    chunks.append(chunk_text)
-                    metadata.append({
-                        'chapter_num': chapter['num'],
-                        'chapter_title': chapter['title'],
-                        'subsection': current_subsection,
-                        'start_char': pos,
-                        'end_char': chunk_end
-                    })
-                
-                # Move position with overlap
-                pos = chunk_end - self.chunk_overlap
-                if pos >= len(chapter_text):
-                    break
+                chunks.append(chunk_text)
+                metadata.append({
+                    'chapter_num': chapter['num'],
+                    'chapter_title': chapter['title'],
+                    'subsection': current_subsection,
+                    'start_char': pos,
+                    'end_char': chunk_end
+                })
+            
+            # Move position with overlap
+            new_pos = chunk_end - self.chunk_overlap
+            if new_pos <= pos:  # Safety check to prevent infinite loop
+                new_pos = pos + (self.chunk_size - self.chunk_overlap)
+            pos = new_pos
+            
+            if pos >= len(chapter_text):
+                break
+        
+        if iterations >= max_iterations:
+            print(f"    Warning: Hit iteration limit for chapter {chapter['num']}, may have incomplete chunks")
         
         return chunks, metadata
     
