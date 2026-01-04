@@ -66,7 +66,7 @@ $config = [
     'PYTHON_PATH' => '/usr/local/bin/python', // Update after checking with 'which python' or 'which python3'
     'EMBED_SCRIPT' => __DIR__ . '/embed_query_openai.py', // Convert query to vector via OpenAI
     'SEARCH_SCRIPT' => __DIR__ . '/search_faiss.py', // Search FAISS index
-    'HYBRID_SCRIPT' => __DIR__ . '/search_hybrid.py', // Hybrid semantic + keyword search
+    'HYBRID_SCRIPT' => __DIR__ . '/search_hybrid_openai.py', // Hybrid search with OpenAI embeddings (if FAISS available)
     'FAISS_INDEX' => __DIR__ . '/faiss_index.bin',
     'CHUNKS_JSON' => __DIR__ . '/chunks.json' // Text chunks and metadata
 ];
